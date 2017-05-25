@@ -103,6 +103,7 @@ nihserver_init:
     mov rdi, self
     mov rsi, filepath_size
     call nihserver_set_filepath_size
+.done:
     add rsp, frame_size
     pop rbp
     ret
