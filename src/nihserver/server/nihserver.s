@@ -1,11 +1,24 @@
 %define NIHSERVER_S
 
+%include "nihserver/server/nihserver.i"
+
+%include "nihserver/assert/assert.i"
 %include "nihserver/linux/fd.i"
 %include "nihserver/linux/sockaddr_in.i"
 %include "nihserver/linux/syscall.i"
-%include "nihserver/server/nihserver.i"
 
 %define INVALID_FD -1
+
+section .data
+
+hello:
+    dq `hello\n`
+helloend:
+
+section .bss
+
+peer_addr:
+    db 24
 
 section .text
 
@@ -50,7 +63,7 @@ nihserver_deinit:
     pop rbp
     ret
 
-%define frame_size 48
+%define frame_size 80
 ; struct nihserver *
 %define self [rbp - 8]
 ; struct fd *
@@ -61,6 +74,14 @@ nihserver_deinit:
 %define addr [rbp - 40]
 ; uint64_t addrlen
 %define addrlen [rbp - 48]
+; struct sockaddr_in
+%define upeer_sockaddr [rbp - 64]
+; int32_t
+%define upeer_addrlen [rbp - 68]
+; struct fd
+%define upeer_fd [rbp - 72]
+; int32_t
+%define optval [rbp - 76]
 nihserver_start:
     push rbp
     mov rbp, rsp
@@ -79,6 +100,17 @@ nihserver_start:
     jge .endif_result_l_0
     jmp .done
 .endif_result_l_0:
+    mov dword optval, 1
+    mov rdi, fd
+    mov rsi, SOL_SOCKET
+    mov rdx, SO_REUSEADDR
+    lea rcx, optval
+    mov r8, 4
+    call fd_setsockopt
+    cmp rax, 0
+    jge .endif_setsockopt_l_0
+    jmp .done
+.endif_setsockopt_l_0:
     mov rdi, self
     call nihserver_get_port
     mov port, ax
@@ -96,7 +128,44 @@ nihserver_start:
     jge .endif_bind_l_0
     jmp .done
 .endif_bind_l_0:
-
+    mov rdi, fd
+    mov rsi, 256
+    call fd_listen
+    cmp rax, 0
+    jge .endif_listen_l_0
+    jmp .done
+.endif_listen_l_0:
+    mov dword upeer_addrlen, SIZEOF_sockaddr_in
+    mov rdi, fd
+    lea rsi, upeer_sockaddr
+    lea rdx, upeer_addrlen
+    lea rcx, upeer_fd
+    call fd_accept
+    mov ebx, 0
+    cmp eax, 0
+    sete bl
+    mov rdi, rbx
+    mov rsi, 0
+    call assert
+    lea rdi, upeer_sockaddr
+    mov rsi, peer_addr
+    mov rdx, 24
+    call sockaddr_in_to_string
+    mov rdi, fd_stdout
+    mov rsi, peer_addr
+    call fd_puts
+    lea rdi, upeer_fd
+    mov rsi, hello
+    mov rdx, helloend - hello
+    call fd_write
+    mov ebx, 0
+    cmp eax, 0
+    setge bl
+    mov rdi, rbx
+    mov rsi, 0
+    call assert
+    lea rdi, upeer_fd
+    call fd_deinit
 .done:
     add rsp, frame_size
     pop rbp

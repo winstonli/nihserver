@@ -18,6 +18,8 @@ global syscall_listen
 
 global syscall_read
 
+global syscall_setsockopt
+
 global syscall_socket
 
 global syscall_write
@@ -54,6 +56,12 @@ syscall_listen:
 
 syscall_read:
     mov rax, 0
+    syscall
+    ret
+
+syscall_setsockopt:
+    mov rax, 54
+    mov r10, rcx
     syscall
     ret
 

@@ -32,6 +32,13 @@ extern sockaddr_in_init
 ; void sockaddr_in_deinit(struct sockaddr_in *self);
 extern sockaddr_in_deinit
 
+; uint64_t sockaddr_in_to_string(
+;         const struct sockaddr_in *self,
+;         int8_t *s,
+;         uint64_t size
+; );
+extern sockaddr_in_to_string
+
 %endif
 
 %endif

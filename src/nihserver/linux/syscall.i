@@ -5,6 +5,10 @@
 
 %define SOCK_STREAM 1
 
+%define SOL_SOCKET 1
+
+%define SO_REUSEADDR 2
+
 %ifndef SYSCALL_S
 
 ; int32_t syscall_accept(
@@ -31,6 +35,15 @@ extern syscall_listen
 
 ; int32_t syscall_read(int32_t fd, int8_t *buf, uint64_t count);
 extern syscall_read
+
+; int32_t syscall_setsockopt(
+;         int32_t fd,
+;         int32_t level,
+;         int32_t optname,
+;         int8_t *optval,
+;         int32_t optlen
+; );
+extern syscall_setsockopt
 
 ; int32_t syscall_socket(int family, int type, int protocol);
 extern syscall_socket

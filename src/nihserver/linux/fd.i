@@ -8,7 +8,7 @@
 ;     int32_t fd;
 ; }
 
-%define SIZEOF_fd 8
+%define SIZEOF_fd 4
 
 %define OFFSETOF_fd_fd 0
 
@@ -26,6 +26,9 @@ extern fd_stderr
 ; void fd_init(struct fd *self);
 extern fd_init
 
+; void fd_init_with_fd(struct fd *self, int32_t fd);
+extern fd_init_with_fd
+
 ; int32_t fd_init_with_socket(
 ;         struct fd *self,
 ;         int32_t family,
@@ -37,6 +40,15 @@ extern fd_init_with_socket
 ; void fd_deinit(struct fd *self);
 extern fd_deinit
 
+; int32_t fd_accept(
+;         struct fd *self,
+;         struct sockaddr *upeer_sockaddr,
+;         int32_t *upeer_addrlen,
+;         /* uninitialized */
+;         struct fd *upeer_fd
+; );
+extern fd_accept
+
 ; int32_t fd_bind(
 ;         struct fd *self,
 ;         const struct sockaddr *addr,
@@ -44,7 +56,17 @@ extern fd_deinit
 ; );
 extern fd_bind
 
-;
+; int32_t fd_listen(struct fd *self, int32_t backlog);
+extern fd_listen
+
+; int32_t fd_setsockopt(
+;         struct fd *self,
+;         int32_t level,
+;         int32_t optname,
+;         int8_t *optval,
+;         int32_t optlen
+; );
+extern fd_setsockopt
 
 ; int32_t fd_write(struct fd *self, const void *buf, uint64_t count);
 extern fd_write
@@ -54,6 +76,9 @@ extern fd_putb
 
 ; int32_t fd_putc(struct fd *self, int8_t c);
 extern fd_putc
+
+; int32_t fd_puti32(struct fd *self, int32_t i);
+extern fd_puti32
 
 ; int32_t fd_putp(struct fd *self, const void *p);
 extern fd_putp

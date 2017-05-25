@@ -2,6 +2,7 @@
 
 %include "nihserver/linux/fd.i"
 
+%include "nihserver/data/string.i"
 %include "nihserver/linux/syscall.i"
 
 section .data
@@ -34,11 +35,19 @@ section .text
 
 global fd_init
 
+global fd_init_with_fd
+
 global fd_init_with_socket
 
 global fd_deinit
 
+global fd_accept
+
 global fd_bind
+
+global fd_listen
+
+global fd_setsockopt
 
 global fd_write
 
@@ -48,13 +57,23 @@ global fd_putb
 
 global fd_putc
 
+global fd_puti32
+
 global fd_putp
 
 global fd_puts
 
 fd_init:
+    push rbp
     mov rsi, INVALID_FD
+    call fd_init_with_fd
+    pop rbp
+    ret
+
+fd_init_with_fd:
+    push rbp
     call fd_set_fd
+    pop rbp
     ret
 
 %define frame_size 48
@@ -92,9 +111,9 @@ fd_init_with_socket:
     mov fd, rax
 .endif_fd_lt_0:
     mov rdi, self
-    mov rsi, fd
+    mov esi, fd
     call fd_set_fd
-    mov rax, result
+    mov eax, result
     add rsp, frame_size
     pop rbp
     ret
@@ -123,6 +142,50 @@ fd_set_fd:
     mov [rdi + OFFSETOF_fd_fd], esi
     ret
 
+%define frame_size 48
+; struct fd *
+%define self [rbp - 8]
+; struct sockaddr *
+%define upeer_sockaddr [rbp - 16]
+; int32_t *
+%define upeer_addrlen [rbp - 24]
+; struct fd *
+%define upeer_fd [rbp - 32]
+; int32_t
+%define fd [rbp - 36]
+; int32_t
+%define result [rbp - 40]
+fd_accept:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov upeer_sockaddr, rsi
+    mov upeer_addrlen, rdx
+    mov upeer_fd, rcx
+    call fd_get_fd
+    mov fd, eax
+    mov edi, eax
+    mov rsi, upeer_sockaddr
+    mov rdx, upeer_addrlen
+    call syscall_accept
+    cmp eax, 0
+    jge .else_accept_l_0
+    mov result, eax
+    mov dword fd, INVALID_FD
+    jmp .endif_accept_l_0
+.else_accept_l_0:
+    mov fd, eax
+    mov dword result, 0
+.endif_accept_l_0:
+    mov rdi, upeer_fd
+    mov esi, fd
+    call fd_init_with_fd
+    mov eax, result
+    add rsp, frame_size
+    pop rbp
+    ret
+
 %define frame_size 32
 ; struct fd *
 %define self [rbp - 8]
@@ -142,6 +205,56 @@ fd_bind:
     mov rsi, addr
     mov rdx, addrlen
     call syscall_bind
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 16
+; struct fd *
+%define self [rbp - 8]
+; int32_t
+%define backlog [rbp - 12]
+fd_listen:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov backlog, rsi
+    call fd_get_fd
+    mov rdi, rax
+    mov rsi, backlog
+    call syscall_listen
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 32
+; struct fd *
+%define self [rbp - 8]
+; int32_t
+%define level [rbp - 12]
+; int32_t
+%define optname [rbp - 16]
+; int8_t *
+%define optval [rbp - 24]
+; int32_t
+%define optlen [rbp - 28]
+fd_setsockopt:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov level, esi
+    mov optname, edx
+    mov optval, rcx
+    mov optlen, r8d
+    call fd_get_fd
+    mov rdi, rax
+    mov esi, level
+    mov edx, optname
+    mov rcx, optval
+    mov r8d, optlen
+    call syscall_setsockopt
     add rsp, frame_size
     pop rbp
     ret
@@ -221,6 +334,36 @@ fd_putc:
     lea rsi, c
     mov rdx, 1
     call fd_write
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 48
+; struct fd *
+%define self [rbp - 8]
+; int32_t
+%define i [rbp - 12]
+; int8_t[11]
+%define buf [rbp - 28]
+; int8_t *
+%define s [rbp - 36]
+fd_puti32:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov i, esi
+    lea rax, buf
+    mov s, rax
+    mov rdi, s
+    mov rsi, 11
+    mov edx, i
+    call string_append_int32
+    add rax, s
+    mov byte [rax], 0
+    mov rdi, self
+    mov rsi, s
+    call fd_puts
     add rsp, frame_size
     pop rbp
     ret

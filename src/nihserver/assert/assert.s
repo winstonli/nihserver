@@ -20,12 +20,14 @@ global assert
 global assert_true
 
 assert:
+    push rbp
     call assert_true
     cmp rax, 0
     jne endif_ret_not_equals_0
     mov rdi, 2
     call syscall_exit
 endif_ret_not_equals_0:
+    pop rbp
     ret
 
 %define frame_size 16
@@ -39,6 +41,7 @@ assert_true:
     sub rsp, frame_size
     cmp rdi, 0
     jne endif_cond_equals_0
+assert_failed:
     mov msg, rsi
     mov rdi, fd_stderr
     mov rsi, assert_error
@@ -61,7 +64,7 @@ endif_msg_is_not_null:
 else_cond_equals_0:
     mov dword r, 1
 endif_cond_equals_0:
-    mov rax, r
+    mov eax, r
     add rsp, frame_size
     pop rbp
     ret
