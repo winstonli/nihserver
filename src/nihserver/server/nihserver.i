@@ -6,9 +6,10 @@
 ;     uint16_t port;
 ;     /* unowned */
 ;     const char *filepath;
+;     uint64_t filepath_size;
 ; }
 
-%define SIZEOF_nihserver 24
+%define SIZEOF_nihserver 32
 
 %define OFFSETOF_nihserver_fd 0
 
@@ -16,13 +17,16 @@
 
 %define OFFSETOF_nihserver_filepath 16
 
+%define OFFSETOF_nihserver_filepath_size 24
+
 %ifndef NIHSERVER_S
 
 ; void nihserver_init(
 ;         struct nihserver *self,
 ;         uint16_t port,
 ;         /* unowned */
-;         const char *filepath
+;         const char *filepath,
+;         uint64_t filepath_size
 ; );
 extern nihserver_init
 

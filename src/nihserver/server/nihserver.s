@@ -81,6 +81,8 @@ global nihserver_start
 %define port [rbp - 16]
 ; const char *
 %define filepath [rbp - 24]
+; uint64_t
+%define filepath_size [rbp - 32]
 nihserver_init:
     push rbp
     mov rbp, rsp
@@ -88,6 +90,7 @@ nihserver_init:
     mov self, rdi
     mov port, rsi
     mov filepath, rdx
+    mov filepath_size, rcx
     call nihserver_get_fd
     mov rdi, rax
     call fd_init
@@ -97,6 +100,9 @@ nihserver_init:
     mov rdi, self
     mov rsi, filepath
     call nihserver_set_filepath
+    mov rdi, self
+    mov rsi, filepath_size
+    call nihserver_set_filepath_size
     add rsp, frame_size
     pop rbp
     ret
@@ -408,34 +414,26 @@ read_request_uri:
     mov rdi, fd
     mov rsi, buf
     call fd_read
-    cmp rax, -1
-    jne .endif_read_e_n1
-    mov rax, 0
-    jmp .done
-.endif_read_e_n1:
     cmp rax, 0
-    jng .endwhile_space_g_0_and_read_g_0
-    add buf, rax
-    jmp .while_space_g_0_and_read_g_0
-.endwhile_space_g_0_and_read_g_0:
-    mov rax, buf_start
-    cmp byte [rax], '/'
-    je .endif_buf_start0_ne_slash
-    mov rax, 0
-    jmp .done
-.endif_buf_start0_ne_slash:
-    inc rax
-.while_rax_l_buf:
-    cmp rax, buf
-    jnl .endwhile_rax_l_buf
-    cmp byte [rax], ' '
+    jnle .endif_read_le_0
+    jmp .endwhile_space_g_0_and_read_g_0
+.endif_read_le_0:
+.while_read_g_0:
+    cmp rax, 0
+    jng .endwhile_read_g_0
+    mov rbx, buf
+    cmp byte [rbx], ' '
     jne .endif_curr_e_space
-    sub rax, buf_start
+    sub rbx, buf_start
+    mov rax, rbx
     jmp .done
 .endif_curr_e_space:
-    inc rax
-    jmp .while_rax_l_buf
-.endwhile_rax_l_buf:
+    inc qword buf
+    dec rax
+    jmp .while_read_g_0
+.endwhile_read_g_0:
+    jmp .while_space_g_0_and_read_g_0
+.endwhile_space_g_0_and_read_g_0:
     mov rax, 0
 .done:
     add rsp, frame_size
@@ -665,4 +663,8 @@ nihserver_set_port:
 ; void nihserver_set_filepath(struct nihserver *self, const char *filepath);
 nihserver_set_filepath:
     mov [rdi + OFFSETOF_nihserver_filepath], rsi
+    ret
+
+nihserver_set_filepath_size:
+    mov [rdi + OFFSETOF_nihserver_filepath_size], rsi
     ret

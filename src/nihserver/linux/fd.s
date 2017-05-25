@@ -338,14 +338,13 @@ fd_setsockopt:
     ret
 
 %define frame_size 16
-; struct fd *
-%define self [rbp - 8]
 ; int32_t
-%define how [rbp - 12]
+%define how [rbp - 4]
 fd_shutdown:
     push rbp
     mov rbp, rsp
     sub rsp, frame_size
+    mov how, esi
     call fd_get_fd
     mov edi, eax
     mov esi, how
