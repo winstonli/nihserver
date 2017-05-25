@@ -294,15 +294,15 @@ handle_connection:
 .endif_read_e_0:
     mov rdi, upeer_fd
     lea rsi, buf
-    mov rdx, 4096
+    mov rdx, 2048
     call read_request_uri
     cmp rax, 1
     jnl .endif_read_r_l_1
     jmp .send_400
 .endif_read_r_l_1:
     mov rdi, upeer_fd
-    mov rsi, hello
-    mov rdx, helloend - hello
+    lea rsi, buf
+    mov rdx, rax
     call fd_send_all
     mov ebx, 0
     cmp eax, 0
@@ -378,19 +378,66 @@ read_get:
     pop rbp
     ret
 
-%define frame_size 32
+%define frame_size 48
 ; struct fd *
 %define fd [rbp - 8]
 ; int8_t *
 %define buf [rbp - 16]
 ; uint64_t
 %define size [rbp - 24]
-; uint64_t read_request_uri(struct fd *fd, int8_t *buf, uint64_t size)
+; const int8_t *
+%define buf_start [rbp - 32]
+; const int8_t *
+%define buf_end [rbp - 40]
+; uint64_t read_request_uri(struct fd *fd, int8_t *buf, uint64_t size);
 read_request_uri:
     push rbp
     mov rbp, rsp
     sub rsp, frame_size
-    mov rax, 1
+    mov fd, rdi
+    mov buf, rsi
+    mov size, rdx
+    mov buf_start, rsi
+    add rsi, size
+    mov buf_end, rsi
+.while_space_g_0_and_read_g_0:
+    mov rdx, buf_end
+    sub rdx, buf
+    cmp rdx, 0
+    jng .endwhile_space_g_0_and_read_g_0
+    mov rdi, fd
+    mov rsi, buf
+    call fd_read
+    cmp rax, -1
+    jne .endif_read_e_n1
+    mov rax, 0
+    jmp .done
+.endif_read_e_n1:
+    cmp rax, 0
+    jng .endwhile_space_g_0_and_read_g_0
+    add buf, rax
+    jmp .while_space_g_0_and_read_g_0
+.endwhile_space_g_0_and_read_g_0:
+    mov rax, buf_start
+    cmp byte [rax], '/'
+    je .endif_buf_start0_ne_slash
+    mov rax, 0
+    jmp .done
+.endif_buf_start0_ne_slash:
+    inc rax
+.while_rax_l_buf:
+    cmp rax, buf
+    jnl .endwhile_rax_l_buf
+    cmp byte [rax], ' '
+    jne .endif_curr_e_space
+    sub rax, buf_start
+    jmp .done
+.endif_curr_e_space:
+    inc rax
+    jmp .while_rax_l_buf
+.endwhile_rax_l_buf:
+    mov rax, 0
+.done:
     add rsp, frame_size
     pop rbp
     ret
