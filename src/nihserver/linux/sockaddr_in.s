@@ -76,21 +76,29 @@ sockaddr_in_to_string:
     mov rsi, buf_end
     sub rsi, rdi
     mov edx, ebx
-    call string_append_int32
+    call string_from_int32
     add buf_ptr, rax
     mov cl, shift
     cmp cl, 24
     je .endif_shift_ne_24
     mov rax, buf_ptr
     mov byte [rax], '.'
-    inc byte buf_ptr
+    inc qword buf_ptr
 .endif_shift_ne_24:
     add byte shift, 8
     jmp .while_shift_le_24
 .endwhile_shift_le_24:
     mov rax, buf_ptr
     mov byte [rax], ':'
-    inc rax
+    inc qword buf_ptr
+    mov rdi, self
+    call sockaddr_in_get_port
+    mov edx, eax
+    mov rdi, buf_ptr
+    mov rsi, buf_end
+    sub rsi, rdi
+    call string_from_int32
+    add rax, buf_ptr
     mov byte [rax], `\0`
     inc rax
     mov buf_ptr, rax
@@ -106,4 +114,10 @@ sockaddr_in_to_string:
     mov rax, n
     add rsp, frame_size
     pop rbp
+    ret
+
+sockaddr_in_get_port:
+    mov eax, 0
+    mov ah, [rdi + OFFSETOF_sockaddr_in_sin_port]
+    mov al, [rdi + OFFSETOF_sockaddr_in_sin_port + 1]
     ret

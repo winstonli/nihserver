@@ -14,11 +14,15 @@ global syscall_exit
 
 global syscall_fstat
 
+global syscall_fsync
+
 global syscall_listen
 
 global syscall_read
 
 global syscall_setsockopt
+
+global syscall_shutdown
 
 global syscall_socket
 
@@ -49,6 +53,11 @@ syscall_fstat:
     syscall
     ret
 
+syscall_fsync:
+    mov rax, 74
+    syscall
+    ret
+
 syscall_listen:
     mov rax, 50
     syscall
@@ -62,6 +71,11 @@ syscall_read:
 syscall_setsockopt:
     mov rax, 54
     mov r10, rcx
+    syscall
+    ret
+
+syscall_shutdown:
+    mov rax, 48
     syscall
     ret
 

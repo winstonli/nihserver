@@ -45,11 +45,19 @@ global fd_accept
 
 global fd_bind
 
+global fd_fsync
+
 global fd_listen
+
+global fd_read
 
 global fd_setsockopt
 
+global fd_shutdown
+
 global fd_write
+
+global fd_write_all
 
 global fd_print
 
@@ -62,6 +70,8 @@ global fd_puti32
 global fd_putp
 
 global fd_puts
+
+global fd_to_string
 
 fd_init:
     push rbp
@@ -209,6 +219,14 @@ fd_bind:
     pop rbp
     ret
 
+fd_fsync:
+    push rbp
+    call fd_get_fd
+    mov edi, eax
+    call syscall_fsync
+    pop rbp
+    ret
+
 %define frame_size 16
 ; struct fd *
 %define self [rbp - 8]
@@ -224,6 +242,29 @@ fd_listen:
     mov rdi, rax
     mov rsi, backlog
     call syscall_listen
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 32
+; struct fd *
+%define self [rbp - 8]
+; int8_t *
+%define buf [rbp - 16]
+; uint64_t
+%define count [rbp - 24]
+fd_read:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov buf, rsi
+    mov count, rdx
+    call fd_get_fd
+    mov edi, eax
+    mov rsi, buf
+    mov rdx, count
+    call syscall_read
     add rsp, frame_size
     pop rbp
     ret
@@ -259,6 +300,23 @@ fd_setsockopt:
     pop rbp
     ret
 
+%define frame_size 16
+; struct fd *
+%define self [rbp - 8]
+; int32_t
+%define how [rbp - 12]
+fd_shutdown:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    call fd_get_fd
+    mov edi, eax
+    mov esi, how
+    call syscall_shutdown
+    add rsp, frame_size
+    pop rbp
+    ret
+
 %define frame_size 32
 ; struct fd *
 %define self [rbp - 8]
@@ -278,6 +336,47 @@ fd_write:
     mov rsi, buf
     mov rdx, count
     call syscall_write
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 32
+; struct fd *
+%define self [rbp - 8]
+; const void *
+%define buf [rbp - 16]
+; uint64_t
+%define count [rbp - 24]
+; uint64_t
+%define written [rbp - 32]
+fd_write_all:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov buf, rsi
+    mov count, rdx
+    mov qword written, 0
+.while_written_le_count:
+    mov rax, written
+    mov rdx, count
+    cmp rax, rdx
+    jnl .endwhile_written_l_count
+    sub rdx, rax
+    mov rdi, self
+    mov rsi, buf
+    call fd_write
+    cmp rax, 0
+    jnl .endif_write_l_0
+    mov rax, 0
+    jmp .done
+.endif_write_l_0:
+    add written, rax
+    add buf, rax
+    jmp .while_written_le_count
+.endwhile_written_l_count:
+    mov rax, 1
+.done:
     add rsp, frame_size
     pop rbp
     ret
@@ -358,7 +457,7 @@ fd_puti32:
     mov rdi, s
     mov rsi, 11
     mov edx, i
-    call string_append_int32
+    call string_from_int32
     add rax, s
     mov byte [rax], 0
     mov rdi, self
@@ -427,6 +526,26 @@ fd_puts:
     mov s, rax
     jmp .while
 .endwhile:
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 16
+; int8_t *
+%define s [rbp - 8]
+; uint64_t
+%define size [rbp - 16]
+fd_to_string:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov s, rsi
+    mov size, rdx
+    call fd_get_fd
+    mov edx, eax
+    mov rdi, s
+    mov rsi, size
+    call string_from_int32
     add rsp, frame_size
     pop rbp
     ret

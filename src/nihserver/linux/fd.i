@@ -56,8 +56,14 @@ extern fd_accept
 ; );
 extern fd_bind
 
+; int32_t fd_fsync(struct fd *self);
+extern fd_fsync
+
 ; int32_t fd_listen(struct fd *self, int32_t backlog);
 extern fd_listen
+
+; int32_t fd_read(struct fd *self, int8_t *buf, uint64_t count);
+extern fd_read
 
 ; int32_t fd_setsockopt(
 ;         struct fd *self,
@@ -68,8 +74,14 @@ extern fd_listen
 ; );
 extern fd_setsockopt
 
+; int32_t fd_shutdown(struct fd *self, int32_t how);
+extern fd_shutdown
+
 ; int32_t fd_write(struct fd *self, const void *buf, uint64_t count);
 extern fd_write
+
+; bool fd_write_all(struct fd *self, const void *buf, uint64_t count);
+extern fd_write_all
 
 ; int32_t fd_putb(struct fd *self, uint8_t b);
 extern fd_putb
@@ -85,6 +97,9 @@ extern fd_putp
 
 ; int32_t fd_puts(struct fd *self, const char *s);
 extern fd_puts
+
+; uint64_t fd_to_string(struct fd *self, int8_t *s, uint64_t size);
+extern fd_to_string
 
 %endif
 

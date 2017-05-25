@@ -9,6 +9,12 @@
 
 %define SO_REUSEADDR 2
 
+%define SHUT_RD 0
+
+%define SHUT_WR 1
+
+%define SHUT_RDWR 2
+
 %ifndef SYSCALL_S
 
 ; int32_t syscall_accept(
@@ -30,6 +36,9 @@ extern syscall_exit
 ; int32_t syscall_fstat(int32_t fd, struct stat *statbuf);
 extern syscall_fstat
 
+; int32_t syscall_fsync(int32_t fd);
+extern syscall_fsync
+
 ; int32_t syscall_listen(int32_t fd, int32_t backlog);
 extern syscall_listen
 
@@ -44,6 +53,9 @@ extern syscall_read
 ;         int32_t optlen
 ; );
 extern syscall_setsockopt
+
+; int32_t syscall_shutdown(int32_t fd, int32_t how);
+extern syscall_shutdown
 
 ; int32_t syscall_socket(int family, int type, int protocol);
 extern syscall_socket
