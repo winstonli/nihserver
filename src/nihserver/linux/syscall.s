@@ -20,6 +20,8 @@ global syscall_listen
 
 global syscall_read
 
+global syscall_sendto
+
 global syscall_setsockopt
 
 global syscall_shutdown
@@ -65,6 +67,12 @@ syscall_listen:
 
 syscall_read:
     mov rax, 0
+    syscall
+    ret
+
+syscall_sendto:
+    mov rax, 44
+    mov r10d, ecx
     syscall
     ret
 

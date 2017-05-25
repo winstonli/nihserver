@@ -65,6 +65,16 @@ extern fd_listen
 ; int32_t fd_read(struct fd *self, int8_t *buf, uint64_t count);
 extern fd_read
 
+; int32_t fd_sendto(
+;         struct fd *self,
+;         const void *buf,
+;         uint64_t len,
+;         int32_t flags,
+;         const struct sockaddr *dest_addr,
+;         uint64_t addrlen
+; );
+extern fd_sendto
+
 ; int32_t fd_setsockopt(
 ;         struct fd *self,
 ;         int32_t level,
@@ -80,8 +90,8 @@ extern fd_shutdown
 ; int32_t fd_write(struct fd *self, const void *buf, uint64_t count);
 extern fd_write
 
-; bool fd_write_all(struct fd *self, const void *buf, uint64_t count);
-extern fd_write_all
+; bool fd_send_all(struct fd *self, const void *buf, uint64_t count);
+extern fd_send_all
 
 ; int32_t fd_putb(struct fd *self, uint8_t b);
 extern fd_putb

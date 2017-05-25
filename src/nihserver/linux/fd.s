@@ -51,13 +51,15 @@ global fd_listen
 
 global fd_read
 
+global fd_sendto
+
 global fd_setsockopt
 
 global fd_shutdown
 
 global fd_write
 
-global fd_write_all
+global fd_send_all
 
 global fd_print
 
@@ -269,6 +271,41 @@ fd_read:
     pop rbp
     ret
 
+%define frame_size 48
+; struct fd *
+%define self [rbp - 8]
+; const void *
+%define buf [rbp - 16]
+; uint64_t
+%define len [rbp - 24]
+; int32_t
+%define flgs [rbp - 32]
+; const struct sockaddr_in *
+%define dest_addr [rbp - 40]
+; uint64_t
+%define addrlen [rbp - 48]
+fd_sendto:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov buf, rsi
+    mov len, rdx
+    mov flgs, ecx
+    mov dest_addr, r8
+    mov addrlen, r9
+    call fd_get_fd
+    mov edi, eax
+    mov rsi, buf
+    mov rdx, len
+    mov ecx, flgs
+    mov r8, dest_addr
+    mov r9, addrlen
+    call syscall_sendto
+    add rsp, frame_size
+    pop rbp
+    ret
+
 %define frame_size 32
 ; struct fd *
 %define self [rbp - 8]
@@ -349,7 +386,7 @@ fd_write:
 %define count [rbp - 24]
 ; uint64_t
 %define written [rbp - 32]
-fd_write_all:
+fd_send_all:
     push rbp
     mov rbp, rsp
     sub rsp, frame_size
@@ -365,7 +402,10 @@ fd_write_all:
     sub rdx, rax
     mov rdi, self
     mov rsi, buf
-    call fd_write
+    mov ecx, MSG_NOSIGNAL
+    mov r8, 0
+    mov r9, 0
+    call fd_sendto
     cmp rax, 0
     jnl .endif_write_l_0
     mov rax, 0

@@ -15,6 +15,8 @@
 
 %define SHUT_RDWR 2
 
+%define MSG_NOSIGNAL 16384
+
 %ifndef SYSCALL_S
 
 ; int32_t syscall_accept(
@@ -44,6 +46,16 @@ extern syscall_listen
 
 ; int32_t syscall_read(int32_t fd, int8_t *buf, uint64_t count);
 extern syscall_read
+
+; int32_t syscall_sendto(
+;         int32_t fd,
+;         const void *buf,
+;         uint64_t len,
+;         int32_t flags,
+;         const struct sockaddr *dest_addr,
+;         uint64_t addrlen
+; );
+extern syscall_sendto
 
 ; int32_t syscall_setsockopt(
 ;         int32_t fd,

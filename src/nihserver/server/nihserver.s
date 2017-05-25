@@ -282,6 +282,7 @@ handle_connection:
     call read_get
     cmp eax, 0
     jne .endif_read_e_0
+.send_400:
     mov rdi, upeer_fd
     mov rsi, upeer_sockaddr
     mov rdx, status_400
@@ -291,11 +292,18 @@ handle_connection:
     call send_response_string
     jmp .done
 .endif_read_e_0:
-
+    mov rdi, upeer_fd
+    lea rsi, buf
+    mov rdx, 4096
+    call read_request_uri
+    cmp rax, 1
+    jnl .endif_read_r_l_1
+    jmp .send_400
+.endif_read_r_l_1:
     mov rdi, upeer_fd
     mov rsi, hello
     mov rdx, helloend - hello
-    call fd_write
+    call fd_send_all
     mov ebx, 0
     cmp eax, 0
     setge bl
@@ -370,6 +378,23 @@ read_get:
     pop rbp
     ret
 
+%define frame_size 32
+; struct fd *
+%define fd [rbp - 8]
+; int8_t *
+%define buf [rbp - 16]
+; uint64_t
+%define size [rbp - 24]
+; uint64_t read_request_uri(struct fd *fd, int8_t *buf, uint64_t size)
+read_request_uri:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov rax, 1
+    add rsp, frame_size
+    pop rbp
+    ret
+
 %define frame_size 48
 ; struct fd *
 %define fd [rbp - 8]
@@ -408,7 +433,7 @@ send_response_string:
     mov rdi, fd
     mov rsi, body
     mov rdx, body_size
-    call fd_write_all
+    call fd_send_all
     cmp eax, 0
     je .done
     mov rdi, fd
@@ -451,19 +476,19 @@ send_headers:
     mov rdi, fd
     mov rsi, http_1_1
     mov rdx, http_1_1_end - http_1_1
-    call fd_write_all
+    call fd_send_all
     cmp eax, 0
     je .done
     mov rdi, fd
     mov rsi, status
     mov rdx, status_size
-    call fd_write_all
+    call fd_send_all
     cmp eax, 0
     je .done
     mov rdi, fd
     mov rsi, headers_pre_content_length
     mov rdx, headers_pre_content_length_end - headers_pre_content_length
-    call fd_write_all
+    call fd_send_all
     cmp eax, 0
     je .done
     lea rdi, content_length_buf
@@ -473,13 +498,13 @@ send_headers:
     mov rdx, rax
     mov rdi, fd
     lea rsi, content_length_buf
-    call fd_write_all
+    call fd_send_all
     cmp eax, 0
     je .done
     mov rdi, fd
     mov rsi, headers_last
     mov rdx, headers_last_end - headers_last
-    call fd_write_all
+    call fd_send_all
 .done:
     add rsp, frame_size
     pop rbp
