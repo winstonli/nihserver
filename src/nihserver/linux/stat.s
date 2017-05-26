@@ -36,6 +36,7 @@ stat_get_st_mode:
 
 stat_get_st_size:
     mov rax, [rdi + OFFSETOF_stat_st_size]
+    ret
 
 stat_is_dir:
     call stat_get_st_mode

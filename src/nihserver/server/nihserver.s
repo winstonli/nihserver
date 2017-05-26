@@ -7,6 +7,7 @@
 %include "nihserver/data/string.i"
 %include "nihserver/linux/fd.i"
 %include "nihserver/linux/sockaddr_in.i"
+%include "nihserver/linux/stat.i"
 %include "nihserver/linux/syscall.i"
 
 %define INVALID_FD -1
@@ -23,7 +24,7 @@ accept_failed_msg:
     db `Failed to accept\0`
 
 listen_msg:
-    db `Listening on \0`
+    db `Listening on [\0`
 
 pref_fd:
     db ` (fd \0`
@@ -31,8 +32,13 @@ pref_fd:
 suff_fd:
     db `)\n\0`
 
+req_msg:
+    db `] (fd \0`
+req_msg_:
+    db `) -> \0`
+
 accept_msg:
-    db `Accepted connection from \0`
+    db `Accepted connection from [\0`
 
 get_string:
     dq "GET "
@@ -64,6 +70,10 @@ status_404:
 status_404_end:
     db `\n`
 status_404_line_end:
+
+index_html:
+    db `/index.html\0`
+index_html_end:
 
 section .text
 
@@ -236,6 +246,9 @@ nihserver_print_listen:
     lea rsi, s
     call fd_puts
     mov rdi, fd_stdout
+    mov esi, ']'
+    call fd_putc
+    mov rdi, fd_stdout
     mov rsi, pref_fd
     call fd_puts
     mov rdi, self
@@ -327,6 +340,9 @@ print_accept:
     mov rdx, rax
     call fd_write
     mov rdi, fd_stdout
+    mov esi, ']'
+    call fd_putc
+    mov rdi, fd_stdout
     mov rsi, pref_fd
     call fd_puts
     mov rdi, fd
@@ -386,23 +402,28 @@ handle_connection:
     call read_get
     cmp eax, 0
     jne .endif_read_e_0
-.send_400:
     mov rdi, upeer_fd
     mov rsi, upeer_sockaddr
-    mov rdx, status_400
-    mov rcx, status_400_end - status_400
-    mov r8, rdx
-    mov r9, status_400_line_end - status_400
-    call send_response_string
+    call send_400
     jmp .done
 .endif_read_e_0:
     mov rdi, upeer_fd
     mov rsi, req_uri_start
     mov rdx, 2048
     call read_request_uri
+    mov rdi, upeer_sockaddr
+    mov rsi, upeer_fd
+    mov rdx, req_uri_start
+    mov rcx, rax
+    push rax
+    call print_request
+    pop rax
     cmp rax, 1
     jnl .endif_read_r_l_1
-    jmp .send_400
+    mov rdi, upeer_fd
+    mov rsi, upeer_sockaddr
+    call send_400
+    jmp .done
 .endif_read_r_l_1:
     mov rdi, upeer_fd
     mov rsi, upeer_sockaddr
@@ -429,6 +450,78 @@ handle_connection:
 .fail:
     mov rdi, upeer_fd
     call fd_deinit
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 64
+; struct sockaddr_in *
+%define addr [rbp - 8]
+; struct fd *
+%define fd [rbp - 16]
+; const int8_t *
+%define request_uri [rbp - 24]
+; uint64_t
+%define request_uri_size [rbp - 32]
+; int8_t[24]
+%define buf [rbp - 56]
+; void print_request(
+;         struct sockaddr_in *addr,
+;         struct fd *fd,
+;         const int8_t *request_uri,
+;         uint64_t request_uri_size
+; );
+print_request:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+
+    mov addr, rdi
+    mov fd, rsi
+    mov request_uri, rdx
+    mov request_uri_size, rcx
+
+    mov rdi, fd_stdout
+    mov esi, '['
+    call fd_putc
+
+    mov rdi, addr
+    lea rsi, buf
+    mov rdx, 24
+    call sockaddr_in_to_string
+
+    mov rdi, fd_stdout
+    lea rsi, buf
+    mov rdx, rax
+    call fd_write
+
+    mov rdi, fd_stdout
+    mov rsi, req_msg
+    call fd_puts
+
+    mov rdi, fd
+    lea rsi, buf
+    mov rdx, 24
+    call fd_to_string
+
+    mov rdi, fd_stdout
+    lea rsi, buf
+    mov rdx, rax
+    call fd_write
+
+    mov rdi, fd_stdout
+    mov rsi, req_msg_
+    call fd_puts
+
+    mov rdi, fd_stdout
+    mov rsi, request_uri
+    mov rdx, request_uri_size
+    call fd_write
+
+    mov rdi, fd_stdout
+    mov esi, `\n`
+    call fd_putc
+
     add rsp, frame_size
     pop rbp
     ret
@@ -652,6 +745,28 @@ has_no_special_directories:
     db '..'
     align 8
 
+; void send_400(struct fd *fd, struct sockaddr_in *addr);
+send_400:
+    push rbp
+    mov rdx, status_400
+    mov rcx, status_400_end - status_400
+    mov r8, rdx
+    mov r9, status_400_line_end - status_400
+    call send_response_string
+    pop rbp
+    ret
+
+; void send_404(struct fd *fd, struct sockaddr_in *addr);
+send_404:
+    push rbp
+    mov rdx, status_404
+    mov rcx, status_404_end - status_404
+    mov r8, rdx
+    mov r9, status_404_line_end - status_404
+    call send_response_string
+    pop rbp
+    ret
+
 %define frame_size 48
 ; struct fd *
 %define fd [rbp - 8]
@@ -700,7 +815,7 @@ send_response_string:
     pop rbp
     ret
 
-%define frame_size 48
+%define frame_size 192
 ; struct fd *
 %define fd [rbp - 8]
 ; struct sockaddr_in *
@@ -711,9 +826,12 @@ send_response_string:
 %define filepath_size [rbp - 32]
 ; struct fd
 %define file_fd [rbp - 36]
+; struct stat
+%define stat [rbp - 184]
 ; void send_response_file(
 ;         struct fd *fd,
 ;         struct sockaddr_in *addr,
+;         /* Has extra space for "index.html" */
 ;         const int8_t *filepath,
 ;         uint64_t filepath_size
 ; );
@@ -721,6 +839,7 @@ send_response_file:
     push rbp
     mov rbp, rsp
     sub rsp, frame_size
+
     mov fd, rdi
     mov addr, rsi
     mov filepath, rdx
@@ -732,22 +851,163 @@ send_response_file:
     mov ecx, S_IRUSR
     and edx, S_IRUSR
     call fd_init_with_open
+
+    lea rdi, file_fd
+    lea rsi, stat
+    call fd_fstat
+
+    ; if fstat < 0
+    cmp eax, 0
+    jnl .endif_stat_l_0
+
+    ; then send 404 and return
     mov rdi, fd
-    lea rsi, file_fd
+    mov rsi, addr
+    call send_404
+    jmp .done
+
+.endif_stat_l_0:
+    ; if stat_is_reg
+    lea rdi, stat
+    call stat_is_reg
+    cmp eax, 0
+    je .elseif_is_reg_is_dir
+
+    ; then
+    lea rdi, stat
+    call stat_get_st_size
+
+    mov rdi, fd
+    mov rsi, addr
+    lea rdx, file_fd
+    mov rcx, rax
+    call send_reg
+    jmp .endif_is_reg
+.elseif_is_reg_is_dir:
+    lea rdi, stat
+    call stat_is_dir
+    cmp eax, 0
+    je .endif_is_reg
+
+    mov rdi, fd
+    mov rsi, addr
+    mov rdx, filepath
+    mov rcx, filepath_size
+    call send_dir
+.endif_is_reg:
+.done:
+    lea rdi, file_fd
+    call fd_deinit
+
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 32
+; struct fd *
+%define fd [rbp - 8]
+; struct sockaddr_in *
+%define addr [rbp - 16]
+; struct fd *
+%define file [rbp - 24]
+; uint64_t
+%define size [rbp - 32]
+; void send_reg(
+;         struct fd *fd,
+;         struct sockaddr_in *addr,
+;         struct fd *file,
+;         uint64_t size
+; );
+send_reg:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+
+    mov fd, rdi
+    mov addr, rsi
+    mov file, rdx
+    mov size, rcx
+
+    mov rdx, status_200
+    mov rcx, status_200_end - status_200
+    mov r8, size
+    call send_headers
+
+    cmp eax, 0
+    je .done
+
+    mov rdi, fd
+    mov rsi, file
     mov rdx, 0
-    mov rcx, 88
+    mov rcx, size
     call fd_sendfile
 
-    ; mov rdi, fd
-    ; mov rsi, filepath
-    ; mov rdx, filepath_size
-    ; call fd_send_all
-    ; mov ebx, 0
-    ; cmp eax, 0
-    ; setge bl
-    ; mov rdi, rbx
-    ; mov rsi, 0
-    ; call assert
+.done:
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 176
+; struct fd *
+%define fd [rbp - 8]
+; struct sockaddr_in *
+%define addr [rbp - 16]
+; const int8_t *
+%define filepath [rbp - 24]
+; uint64_t
+%define filepath_size [rbp - 32]
+; struct stat
+%define stat [rbp - 176]
+; void send_dir(
+;         struct fd *fd,
+;         struct sockaddr_in *addr,
+;         /* Has extra space for "index.html\0" */
+;         const int8_t *filepath,
+;         uint64_t filepath_size
+; );
+send_dir:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+
+    mov fd, rdi
+    mov addr, rsi
+    mov filepath, rdx
+    mov filepath_size, rcx
+
+    mov rdi, rdx
+    add rdi, filepath_size
+    mov rsi, index_html
+    mov rdx, index_html_end - index_html
+    call mem_copy
+
+    mov rdi, filepath
+    lea rsi, stat
+    call syscall_stat
+
+    cmp eax, 0
+    jnl .endif_stat_l_0
+    mov rdi, fd
+    mov rsi, addr
+    call send_404
+    jmp .done
+.endif_stat_l_0:
+    lea rdi, stat
+    call stat_is_reg
+    cmp eax, 0
+    jne .endif_not_reg
+    mov rdi, fd
+    mov rsi, addr
+    call send_404
+    jmp .done
+.endif_not_reg:
+    mov rdi, fd
+    mov rsi, addr
+    mov rdx, filepath
+    mov rcx, filepath_size
+    add rcx, index_html_end - index_html - 1
+    call send_response_file
+.done:
     add rsp, frame_size
     pop rbp
     ret
