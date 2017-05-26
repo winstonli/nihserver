@@ -38,8 +38,10 @@ section .text
 %define web_dir [rbp + 32]
 ; uint64_t
 %define port_length [rbp - 8]
+; int64_t
+%define port [rbp - 16]
 ; struct nihserver
-%define srv [rbp - 40]
+%define srv [rbp - 48]
 _start:
     push rbp
     mov rbp, rsp
@@ -57,6 +59,7 @@ _start:
     mov port_length, rax
     cmp qword port_length, 5
     jng .endif_port_length_g_5
+.invalid_port:
     mov rdi, fd_stdout
     mov rsi, invalid_port
     mov rdx, invalid_port_end - invalid_port
@@ -72,7 +75,15 @@ _start:
 .endif_port_length_g_5:
     mov rdi, port_str
     mov rsi, port_length
+    lea rdx, port
     call string_to_int64
+    cmp rax, 0
+    je .invalid_port
+    cmp qword port, 0
+    jl .invalid_port
+    cmp qword port, 65535
+    jg .invalid_port
+.endif_bad_port:
     mov rdi, fd_stdout
     mov rsi, hellostring
     mov rdx, helloend - hellostring

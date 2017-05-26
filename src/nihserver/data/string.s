@@ -152,20 +152,34 @@ string_from_uint64:
     pop rbp
     ret
 
-%define frame_size 16
+%define frame_size 32
 ; int8_t *
 %define s [rbp - 8]
+; uint64_t
+%define size [rbp - 16]
+; int64_t *
+%define o [rbp - 24]
 string_to_int64:
     push rbp
     mov rbp, rsp
     sub rsp, frame_size
     mov s, rdi
+    mov size, rsi
+    mov o, rdx
     call string_num_len
+    cmp rax, 0
+    jne .endif_len_e_0
+    jmp .done
+.endif_len_e_0:
     mov rdi, s
     mov rsi, s
     add rsi, rax
     dec rsi
     call string_to_int64_
+    mov rbx, o
+    mov [rbx], rax
+    mov eax, 1
+.done:
     add rsp, frame_size
     pop rbp
     ret
@@ -334,22 +348,25 @@ string_to_int64_:
 %define frame_size 32
 ; const char *
 %define s [rbp - 8]
+; const char *
+%define ptr [rbp - 16]
 ; uint64_t
-%define len [rbp - 16]
+%define len [rbp - 24]
 ; uint64_t
-%define total [rbp - 24]
+%define total [rbp - 32]
 ; uint64_t string_num_len(const char *s, uint64_t len);
 string_num_len:
     push rbp
     mov rbp, rsp
     sub rsp, frame_size
     mov s, rdi
+    mov ptr, rdi
     mov len, rsi
     mov qword total, 0
 .while_len_g_0:
     cmp qword len, 0
     jng .endwhile_len_g_0
-    mov rax, s
+    mov rax, ptr
     mov dl, [rax]
     cmp qword total, 0
     jne .else_total_e_0
@@ -360,11 +377,20 @@ string_num_len:
 .endif_total_e_0:
     cmp eax, 0
     je .endwhile_len_g_0
-    inc qword s
+    inc qword ptr
     dec qword len
     inc qword total
     jmp .while_len_g_0
 .endwhile_len_g_0:
+    cmp qword total, 1
+    jne .endif_total_e_1_and_first_e_minus
+    mov rax, s
+    mov rbx, 0
+    mov bl, [rax]
+    cmp bl, '-'
+    jne .endif_total_e_1_and_first_e_minus
+    mov qword total, 0
+.endif_total_e_1_and_first_e_minus:
     mov rax, total
     add rsp, frame_size
     pop rbp
