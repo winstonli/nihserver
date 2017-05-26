@@ -88,10 +88,12 @@ _start:
     cmp qword port, 65535
     jg .invalid_port
 .endif_bad_port:
+    mov rdi, web_dir
+    call string_length
+    mov rcx, rax
     lea rdi, srv
     mov rsi, port
-    mov rdx, path
-    mov rcx, 3
+    mov rdx, web_dir
     call nihserver_init
     lea rdi, srv
     call nihserver_start

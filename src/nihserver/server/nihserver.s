@@ -273,17 +273,21 @@ nihserver_start_accepting:
     pop rbp
     ret
 
-%define frame_size 4128
+%define frame_size (48 + 8192)
 ; struct nihserver *
 %define self [rbp - 8]
 ; struct fd *
 %define upeer_fd [rbp - 16]
-; char *
-%define buf_start [rbp - 24]
 ; struct sockaddr_in *
-%define upeer_sockaddr [rbp - 32]
+%define upeer_sockaddr [rbp - 24]
+; const char *
+%define filepath [rbp - 32]
+; uint64_t
+%define filepath_size [rbp - 40]
+; char *
+%define req_uri_start [rbp - 48]
 ; char [8192]
-%define buf [rbp - 8224]
+%define buf [rbp - frame_size]
 ; void nihserver_handle_connection(
 ;         struct nihserver *self,
 ;         struct fd *upeer_fd,
@@ -296,8 +300,17 @@ handle_connection:
     mov self, rdi
     mov upeer_fd, rsi
     mov upeer_sockaddr, rdx
-    lea rax, buf
-    mov buf_start, rax
+    call nihserver_get_filepath
+    mov filepath, rax
+    mov rdi, self
+    call nihserver_get_filepath_size
+    mov filepath_size, rax
+    lea rax, [rbp - frame_size + rax]
+    mov req_uri_start, rax
+    lea rdi, buf
+    mov rsi, filepath
+    mov rdx, filepath_size
+    call mem_copy
     mov rdi, upeer_fd
     call read_get
     cmp eax, 0
@@ -313,7 +326,7 @@ handle_connection:
     jmp .done
 .endif_read_e_0:
     mov rdi, upeer_fd
-    lea rsi, buf
+    mov rsi, req_uri_start
     mov rdx, 2048
     call read_request_uri
     cmp rax, 1
@@ -323,6 +336,7 @@ handle_connection:
     mov rdi, upeer_fd
     lea rsi, buf
     mov rdx, rax
+    add rdx, filepath_size
     call fd_send_all
     mov ebx, 0
     cmp eax, 0
@@ -787,6 +801,11 @@ nihserver_get_port:
 ; const char *nihserver_get_filepath(const struct nihserver *self);
 nihserver_get_filepath:
     mov rax, [rdi + OFFSETOF_nihserver_filepath]
+    ret
+
+; uint64_t nihserver_get_filepath_size(const struct nihserver *self);
+nihserver_get_filepath_size:
+    mov rax, [rdi + OFFSETOF_nihserver_filepath_size]
     ret
 
 ; void nihserver_set_port(struct nihserver *self, uint16_t port);
