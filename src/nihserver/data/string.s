@@ -343,7 +343,154 @@ string_to_int64_:
     dq .c0n, .c1n, .c2n, .c3n, .c4n, .c5n, .c6n, .c7n, .c8n, .c9n
     dq .c10n, .c11n, .c12n, .c13n, .c14n, .c15n, .c16n, .c17n, .c18n
 .endif_start0_e_minus:
-    jmp $
+    mov rbx, end
+    sub rbx, start
+    lea rbx, [.jump_table + 8 * rbx]
+    jmp [rbx]
+.c18:
+    lea rbx, [end - 18]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    mov rdx, 1000000000000000000
+    imul rcx, rdx
+    add value, rcx
+.c17:
+    lea rbx, [end - 17]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    mov rdx, 100000000000000000
+    imul rcx, rdx
+    add value, rcx
+.c16:
+    lea rbx, [end - 16]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    mov rdx, 10000000000000000
+    imul rcx, rdx
+    add value, rcx
+.c15:
+    lea rbx, [end - 15]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    mov rdx, 1000000000000000
+    imul rcx, rdx
+    add value, rcx
+.c14:
+    lea rbx, [end - 14]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    mov rdx, 100000000000000
+    imul rcx, rdx
+    add value, rcx
+.c13:
+    lea rbx, [end - 13]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    mov rdx, 10000000000000
+    imul rcx, rdx
+    add value, rcx
+.c12:
+    lea rbx, [end - 12]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    mov rdx, 1000000000000
+    imul rcx, rdx
+    add value, rcx
+.c11:
+    lea rbx, [end - 11]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    mov rdx, 100000000000
+    imul rcx, rdx
+    add value, rcx
+.c10:
+    lea rbx, [end - 10]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    mov rdx, 10000000000
+    imul rcx, rdx
+    add value, rcx
+.c9:
+    lea rbx, [end - 9]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    imul rcx, 1000000000
+    add value, rcx
+.c8:
+    lea rbx, [end - 8]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    imul rcx, 100000000
+    add value, rcx
+.c7:
+    lea rbx, [end - 7]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    imul rcx, 10000000
+    add value, rcx
+.c6:
+    lea rbx, [end - 6]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    imul rcx, 1000000
+    add value, rcx
+.c5:
+    lea rbx, [end - 5]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    imul rcx, 100000
+    add value, rcx
+.c4:
+    lea rbx, [end - 4]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    imul rcx, 10000
+    add value, rcx
+.c3:
+    lea rbx, [end - 3]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    imul rcx, 1000
+    add value, rcx
+.c2:
+    lea rbx, [end - 2]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    imul rcx, 100
+    add value, rcx
+.c1:
+    lea rbx, [end - 1]
+    mov rcx, 0
+    mov cl, [rbx]
+    sub cl, '0'
+    imul rcx, 10
+    add value, rcx
+.c0:
+    mov rcx, 0
+    mov cl, [end]
+    sub cl, '0'
+    add value, rcx
+    ret
+.jump_table:
+    dq .c0, .c1, .c2, .c3, .c4, .c5, .c6, .c7, .c8, .c9
+    dq .c10, .c11, .c12, .c13, .c14, .c15, .c16, .c17, .c18
 
 %define frame_size 32
 ; const char *

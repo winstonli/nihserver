@@ -93,6 +93,9 @@ extern fd_write
 ; bool fd_send_all(struct fd *self, const void *buf, uint64_t count);
 extern fd_send_all
 
+; int32_t fd_perror(struct fd *self, const int8_t *msg, int32_t errno);
+extern fd_perror
+
 ; int32_t fd_putb(struct fd *self, uint8_t b);
 extern fd_putb
 

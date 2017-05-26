@@ -13,21 +13,21 @@
 
 section .data
 
-hello:
-    dq `hello\n`
-helloend:
+bind_failed_msg:
+    db `Failed to bind\0`
+
+listen_failed_msg:
+    db `Failed to listen\0`
 
 listen_msg:
     db "Listening on "
 listen_addr:
     times 24 db 0
-    align 8
 
 accept_msg:
     db "Accepted connection from: "
 peer_addr:
     times 24 db 0
-    align 8
 
 get_string:
     dq "GET "
@@ -35,36 +35,30 @@ get_string:
 http_1_1:
     db "HTTP/1.1 "
 http_1_1_end:
-    align 8
 
 headers_pre_content_length:
     db `\r\nServer: nihserver/1.0\r\nConnection: close\r\nContent-Length: `
 headers_pre_content_length_end:
-    align 8
 
 headers_last:
     db `\r\n\r\n`
 headers_last_end:
-    align 8
 
 status_200:
     db "200 OK"
 status_200_end:
-    align 8
 
 status_400:
     db "400 Bad Request"
 status_400_end:
     db `\n`
 status_400_line_end:
-    align 8
 
 status_404:
     db "404 Not Found"
 status_404_end:
     db `\n`
 status_404_line_end:
-    align 8
 
 section .text
 
@@ -140,6 +134,8 @@ nihserver_start:
     mov rbp, rsp
     sub rsp, frame_size
     mov self, rdi
+    call nihserver_print_start
+    mov rdi, self
     call nihserver_get_fd
     mov fd, rax
     mov rdi, fd
@@ -177,15 +173,27 @@ nihserver_start:
     lea rsi, addr
     mov rdx, addrlen
     call fd_bind
-    cmp rax, 0
+    cmp eax, 0
     jge .endif_bind_l_0
+    neg eax
+    mov rdi, fd_stderr
+    mov rsi, bind_failed_msg
+    mov edx, eax
+    call fd_perror
+    mov eax, -1
     jmp .done
 .endif_bind_l_0:
     mov rdi, fd
     mov rsi, 256
     call fd_listen
-    cmp rax, 0
+    cmp eax, 0
     jge .endif_listen_l_0
+    neg eax
+    mov rdi, fd_stderr
+    mov rsi, listen_failed_msg
+    mov edx, eax
+    call fd_perror
+    mov eax, -1
     jmp .done
 .endif_listen_l_0:
     lea rdi, addr
@@ -652,7 +660,13 @@ nihserver_get_fd:
 
 ; uint16_t nihserver_get_port(const struct nihserver *self);
 nihserver_get_port:
-    movsx eax, word [rdi + OFFSETOF_nihserver_port]
+    mov eax, 0
+    mov ax, [rdi + OFFSETOF_nihserver_port]
+    ret
+
+; const char *nihserver_get_filepath(const struct nihserver *self);
+nihserver_get_filepath:
+    mov rax, [rdi + OFFSETOF_nihserver_filepath]
     ret
 
 ; void nihserver_set_port(struct nihserver *self, uint16_t port);
@@ -668,4 +682,43 @@ nihserver_set_filepath:
 
 nihserver_set_filepath_size:
     mov [rdi + OFFSETOF_nihserver_filepath_size], rsi
+    ret
+
+start_string:
+    db `Starting server with { "port": \0`
+start_string_:
+    db `, "web_directory": "\0`
+start_string__:
+    db `" }\n\0`
+align 8
+%define frame_size 16
+; struct nihserver *
+%define self [rbp - 8]
+; void nihserver_print_start(struct nihserver *self);
+nihserver_print_start:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov rdi, fd_stdout
+    mov rsi, start_string
+    call fd_puts
+    mov rdi, self
+    call nihserver_get_port
+    mov rdi, fd_stdout
+    mov esi, eax
+    call fd_puti32
+    mov rdi, fd_stdout
+    mov rsi, start_string_
+    call fd_puts
+    mov rdi, self
+    call nihserver_get_filepath
+    mov rdi, fd_stdout
+    mov rsi, rax
+    call fd_puts
+    mov rdi, fd_stdout
+    mov rsi, start_string__
+    call fd_puts
+    add rsp, frame_size
+    pop rbp
     ret

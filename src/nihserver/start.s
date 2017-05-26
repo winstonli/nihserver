@@ -9,23 +9,28 @@ global _start
 section .data
 
 usage:
-    dq `usage: nihserver [port] [web_directory]\n`
+    db `usage: nihserver [port] [web_directory]\n`
 usage_end:
 
 invalid_port:
-    dq `Invalid port: `
-invalid_port_end:
+    db `Invalid port: \0`
 
-hello:
-    dq helloend - hellostring, hellostring
+start_string:
+    db `Starting server with { "port": \0`
+start_string_:
+    db `, "web_directory": "\0`
+start_string__:
+    db `" }\n\0`
+
 hellostring:
-    db `Hello world!\n`
+    db `Hello world\n`
 helloend:
 
-path:
-    dq `/home/winston\0`
+failed_to_start:
+    db `Failed to start server\n\0`
 
-section .bss
+path:
+    db `/home/winston\0`
 
 section .text
 
@@ -62,8 +67,7 @@ _start:
 .invalid_port:
     mov rdi, fd_stdout
     mov rsi, invalid_port
-    mov rdx, invalid_port_end - invalid_port
-    call fd_write
+    call fd_puts
     mov rdi, fd_stdout
     mov rsi, port_str
     mov rdx, port_length
@@ -80,27 +84,23 @@ _start:
     cmp rax, 0
     je .invalid_port
     cmp qword port, 0
-    jl .invalid_port
+    jle .invalid_port
     cmp qword port, 65535
     jg .invalid_port
 .endif_bad_port:
-    mov rdi, fd_stdout
-    mov rsi, hellostring
-    mov rdx, helloend - hellostring
-    call fd_write
     lea rdi, srv
-    mov rsi, 8000
+    mov rsi, port
     mov rdx, path
     mov rcx, 3
     call nihserver_init
     lea rdi, srv
     call nihserver_start
-    mov rbx, 0
-    cmp rax, 0
-    sete bl
-    mov rdi, rbx
-    mov rsi, 0
-    call assert
+    cmp eax, 0
+    jnl .endif_start_l_0
+    mov rdi, fd_stderr
+    mov rsi, failed_to_start
+    call fd_puts
+.endif_start_l_0:
     lea rdi, srv
     call nihserver_deinit
     mov rdi, 1

@@ -3,6 +3,7 @@
 %include "nihserver/linux/fd.i"
 
 %include "nihserver/data/string.i"
+%include "nihserver/linux/errno.i"
 %include "nihserver/linux/syscall.i"
 
 section .data
@@ -23,13 +24,22 @@ fd_stderr:
 %define INVALID_FD -1
 
 hex_table:
-dq "0123456789abcdef"
+    db "0123456789abcdef"
 
 hex_prefix:
-dq `0x\0`
+    db `0x\0`
+
+perror_1:
+    db `: \0`
+
+perror_2:
+    db ` (errno = \0`
+
+perror_3:
+    db `)\n\0`
 
 failed_to_close_fd:
-dq `failed to close fd\n\0`
+    db `failed to close fd\n\0`
 
 section .text
 
@@ -61,7 +71,7 @@ global fd_write
 
 global fd_send_all
 
-global fd_print
+global fd_perror
 
 global fd_putb
 
@@ -136,11 +146,12 @@ fd_deinit:
     je .done
     mov rdi, rax
     call syscall_close
-    cmp rax, 0
+    cmp eax, 0
     jge .done
     mov rdi, fd_stderr
     mov rsi, failed_to_close_fd
-    call fd_puts
+    mov edx, eax
+    call fd_perror
 .done:
     ret
 
@@ -416,6 +427,42 @@ fd_send_all:
 .endwhile_written_l_count:
     mov rax, 1
 .done:
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 32
+; struct fd *
+%define self [rbp - 8]
+; const int8_t *
+%define msg [rbp - 16]
+; int32_t
+%define errno [rbp - 20]
+fd_perror:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov msg, rsi
+    mov errno, edx
+    call fd_puts
+    mov rdi, self
+    mov esi, perror_1
+    call fd_puts
+    mov edi, errno
+    call errno_to_string
+    mov rdi, self
+    mov rsi, rax
+    call fd_puts
+    mov rdi, self
+    mov rsi, perror_2
+    call fd_puts
+    mov rdi, self
+    mov esi, errno
+    call fd_puti32
+    mov rdi, self
+    mov rsi, perror_3
+    call fd_puts
     add rsp, frame_size
     pop rbp
     ret
