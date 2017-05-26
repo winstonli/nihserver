@@ -15,12 +15,8 @@ usage_end:
 invalid_port:
     db `Invalid port: \0`
 
-start_string:
-    db `Starting server with { "port": \0`
-start_string_:
-    db `, "web_directory": "\0`
-start_string__:
-    db `" }\n\0`
+stat_err:
+    db `Error when checking \0`
 
 hellostring:
     db `Hello world\n`
@@ -34,7 +30,7 @@ path:
 
 section .text
 
-%define frame_size 48
+%define frame_size 192
 ; int32_t
 %define argc [rbp + 8]
 ; const char *
@@ -45,8 +41,10 @@ section .text
 %define port_length [rbp - 8]
 ; int64_t
 %define port [rbp - 16]
+; struct stat
+%define stat [rbp - 160]
 ; struct nihserver
-%define srv [rbp - 48]
+%define srv [rbp - 192]
 _start:
     push rbp
     mov rbp, rsp
@@ -65,14 +63,14 @@ _start:
     cmp qword port_length, 5
     jng .endif_port_length_g_5
 .invalid_port:
-    mov rdi, fd_stdout
+    mov rdi, fd_stderr
     mov rsi, invalid_port
     call fd_puts
-    mov rdi, fd_stdout
+    mov rdi, fd_stderr
     mov rsi, port_str
     mov rdx, port_length
     call fd_write
-    mov rdi, fd_stdout
+    mov rdi, fd_stderr
     mov esi, `\n`
     call fd_putc
     jmp .done
@@ -88,6 +86,23 @@ _start:
     cmp qword port, 65535
     jg .invalid_port
 .endif_bad_port:
+    mov rdi, web_dir
+    lea rsi, stat
+    call syscall_stat
+    cmp eax, 0
+    jnl .endif_stat_l_0
+    push rax
+    mov rdi, fd_stderr
+    mov rsi, stat_err
+    call fd_puts
+    pop rax
+    mov rdi, fd_stderr
+    mov rsi, web_dir
+    mov edx, eax
+    neg edx
+    call fd_perror
+    jmp .done
+.endif_stat_l_0:
     mov rdi, web_dir
     call string_length
     mov rcx, rax

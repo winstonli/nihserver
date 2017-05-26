@@ -4,11 +4,15 @@
 
 section .data
 
+global syscall_open
+
 global syscall_accept
 
 global syscall_bind
 
 global syscall_close
+
+global syscall_stat
 
 global syscall_exit
 
@@ -20,6 +24,8 @@ global syscall_listen
 
 global syscall_read
 
+global syscall_sendfile
+
 global syscall_sendto
 
 global syscall_setsockopt
@@ -29,6 +35,11 @@ global syscall_shutdown
 global syscall_socket
 
 global syscall_write
+
+syscall_open:
+    mov rax, 2
+    syscall
+    ret
 
 syscall_accept:
     mov rax, 43
@@ -42,6 +53,11 @@ syscall_bind:
 
 syscall_close:
     mov rax, 3
+    syscall
+    ret
+
+syscall_stat:
+    mov rax, 4
     syscall
     ret
 
@@ -67,6 +83,12 @@ syscall_listen:
 
 syscall_read:
     mov rax, 0
+    syscall
+    ret
+
+syscall_sendfile:
+    mov rax, 40
+    mov r10, rcx
     syscall
     ret
 

@@ -47,6 +47,8 @@ global fd_init
 
 global fd_init_with_fd
 
+global fd_init_with_open
+
 global fd_init_with_socket
 
 global fd_deinit
@@ -55,11 +57,15 @@ global fd_accept
 
 global fd_bind
 
+global fd_fstat
+
 global fd_fsync
 
 global fd_listen
 
 global fd_read
+
+global fd_sendfile
 
 global fd_sendto
 
@@ -92,50 +98,57 @@ fd_init:
     pop rbp
     ret
 
+%define frame_size 16
+%define result [rbp - 4]
 fd_init_with_fd:
     push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov dword result, 0
+    cmp esi, INVALID_FD
+    jnl .endif_fd_l_n1
+    mov result, esi
+    mov esi, INVALID_FD
+.endif_fd_l_n1:
     call fd_set_fd
+    add rsp, frame_size
     pop rbp
     ret
 
-%define frame_size 48
+%define frame_size 16
 ; struct fd *
 %define self [rbp - 8]
-; int32_t
-%define family [rbp - 16]
-; int32_t
-%define type [rbp - 24]
-; int32_t
-%define protocol [rbp - 32]
-; int32_t
-%define result [rbp - 40]
-; int32_t
-%define fd [rbp - 48]
+fd_init_with_open:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
+    call syscall_open
+    mov esi, eax
+    mov rdi, self
+    call fd_init_with_fd
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 16
+; struct fd *
+%define self [rbp - 8]
 fd_init_with_socket:
     push rbp
     mov rbp, rsp
     sub rsp, frame_size
     mov self, rdi
-    mov family, rsi
-    mov type, rdx
-    mov protocol, rcx
-    mov rdi, family
-    mov rsi, type
-    mov rdx, protocol
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
     call syscall_socket
-    cmp rax, 0
-    jge .else_fd_lt_0
-    mov result, rax
-    mov qword fd, INVALID_FD
-    jmp .endif_fd_lt_0
-.else_fd_lt_0:
-    mov qword result, 0
-    mov fd, rax
-.endif_fd_lt_0:
+    mov esi, eax
     mov rdi, self
-    mov esi, fd
-    call fd_set_fd
-    mov eax, result
+    call fd_init_with_fd
     add rsp, frame_size
     pop rbp
     ret
@@ -232,6 +245,22 @@ fd_bind:
     pop rbp
     ret
 
+%define frame_size 16
+; struct stat *
+%define buf [rbp - 8]
+fd_fstat:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov buf, rsi
+    call fd_get_fd
+    mov edi, eax
+    mov rsi, buf
+    call syscall_fstat
+    add rsp, frame_size
+    pop rbp
+    ret
+
 fd_fsync:
     push rbp
     call fd_get_fd
@@ -278,6 +307,36 @@ fd_read:
     mov rsi, buf
     mov rdx, count
     call syscall_read
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 32
+; struct fd *
+%define self [rbp - 8]
+; struct fd *
+%define from [rbp - 16]
+; int64_t *
+%define offset [rbp - 24]
+; uint64_t
+%define count [rbp - 32]
+fd_sendfile:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov from, rsi
+    mov offset, rdx
+    mov count, rcx
+    call fd_get_fd
+    mov self, eax
+    mov rdi, from
+    call fd_get_fd
+    mov esi, eax
+    mov edi, self
+    mov rdx, offset
+    mov rcx, count
+    call syscall_sendfile
     add rsp, frame_size
     pop rbp
     ret

@@ -17,7 +17,18 @@
 
 %define MSG_NOSIGNAL 16384
 
+%define O_RDONLY 0
+
+%define S_IRUSR 256
+
 %ifndef SYSCALL_S
+
+; int32_t syscall_open(
+;         const int8_t *filename,
+;         int32_t flags,
+;         int32_t mode
+; );
+extern syscall_open
 
 ; int32_t syscall_accept(
 ;         int32_t fd,
@@ -47,6 +58,14 @@ extern syscall_listen
 ; int32_t syscall_read(int32_t fd, int8_t *buf, uint64_t count);
 extern syscall_read
 
+; int64_t syscall_sendfile(
+;         int32_t out_fd,
+;         int32_t in_fd,
+;         int64_t *offset,
+;         uint64_t count
+; );
+extern syscall_sendfile
+
 ; int32_t syscall_sendto(
 ;         int32_t fd,
 ;         const void *buf,
@@ -71,6 +90,9 @@ extern syscall_shutdown
 
 ; int32_t syscall_socket(int family, int type, int protocol);
 extern syscall_socket
+
+; int32_t syscall_stat(const char *filename, struct stat *buf);
+extern syscall_stat
 
 ; int32_t syscall_write(int32_t fd, const void *buf, uint64_t count);
 extern syscall_write

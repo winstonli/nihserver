@@ -26,8 +26,16 @@ extern fd_stderr
 ; void fd_init(struct fd *self);
 extern fd_init
 
-; void fd_init_with_fd(struct fd *self, int32_t fd);
+; int32_t fd_init_with_fd(struct fd *self, int32_t fd);
 extern fd_init_with_fd
+
+; int32_t fd_init_with_open(
+;         struct fd *self,
+;         const int8_t *filename,
+;         int32_t flags,
+;         int32_t mode
+; );
+extern fd_init_with_open
 
 ; int32_t fd_init_with_socket(
 ;         struct fd *self,
@@ -56,6 +64,9 @@ extern fd_accept
 ; );
 extern fd_bind
 
+; int32_t fd_fstat(struct fd *self, struct stat *buf);
+extern fd_fstat
+
 ; int32_t fd_fsync(struct fd *self);
 extern fd_fsync
 
@@ -64,6 +75,14 @@ extern fd_listen
 
 ; int32_t fd_read(struct fd *self, int8_t *buf, uint64_t count);
 extern fd_read
+
+; int64_t fd_sendfile(
+;         struct fd *self,
+;         struct fd *from,
+;         int64_t *offset,
+;         uint64_t count
+; );
+extern fd_sendfile
 
 ; int32_t fd_sendto(
 ;         struct fd *self,

@@ -23,14 +23,16 @@ accept_failed_msg:
     db `Failed to accept\0`
 
 listen_msg:
-    db "Listening on "
-listen_addr:
-    times 24 db 0
+    db `Listening on \0`
+
+pref_fd:
+    db ` (fd \0`
+
+suff_fd:
+    db `)\n\0`
 
 accept_msg:
-    db "Accepted connection from: "
-peer_addr:
-    times 24 db 0
+    db `Accepted connection from \0`
 
 get_string:
     dq "GET "
@@ -199,21 +201,56 @@ nihserver_start:
     mov eax, -1
     jmp .done
 .endif_listen_l_0:
-    lea rdi, addr
-    mov rsi, listen_addr
-    mov rdx, 24
-    call sockaddr_in_to_string
-    add rax, listen_addr
-    dec rax
-    mov byte [rax], `\n`
-    inc rax
-    mov byte [rax], `\0`
-    mov rdi, fd_stdout
-    mov rsi, listen_msg
-    call fd_puts
+    mov rdi, self
+    lea rsi, addr
+    call nihserver_print_listen
     mov rdi, self
     call nihserver_start_accepting
 .done:
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 48
+; struct nihserver *
+%define self [rbp - 8]
+; struct sockaddr_in *
+%define addr [rbp - 16]
+; int8_t[24]
+%define s [rbp - 40]
+; void print_listen(struct nihserver *self, struct sockaddr_in *addr);
+nihserver_print_listen:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov self, rdi
+    mov addr, rsi
+    mov rdi, fd_stdout
+    mov rsi, listen_msg
+    call fd_puts
+    mov rdi, addr
+    lea rsi, s
+    mov rdx, 24
+    call sockaddr_in_to_string
+    mov rdi, fd_stdout
+    lea rsi, s
+    call fd_puts
+    mov rdi, fd_stdout
+    mov rsi, pref_fd
+    call fd_puts
+    mov rdi, self
+    call nihserver_get_fd
+    mov rdi, rax
+    lea rsi, s
+    mov rdx, 24
+    call fd_to_string
+    mov rdi, fd_stdout
+    lea rsi, s
+    mov rdx, rax
+    call fd_write
+    mov rdi, fd_stdout
+    mov rsi, suff_fd
+    call fd_puts
     add rsp, frame_size
     pop rbp
     ret
@@ -253,17 +290,8 @@ nihserver_start_accepting:
     jmp .while_true
 .endif_accept_l_0:
     lea rdi, upeer_sockaddr
-    mov rsi, peer_addr
-    mov rdx, 24
-    call sockaddr_in_to_string
-    add rax, peer_addr
-    dec rax
-    mov byte [rax], `\n`
-    inc rax
-    mov byte [rax], `\0`
-    mov rdi, fd_stdout
-    mov rsi, accept_msg
-    call fd_puts
+    lea rsi, upeer_fd
+    call print_accept
     mov rdi, self
     lea rsi, upeer_fd
     lea rdx, upeer_sockaddr
@@ -273,7 +301,50 @@ nihserver_start_accepting:
     pop rbp
     ret
 
-%define frame_size (48 + 8192)
+%define frame_size 48
+; struct sockaddr_in *
+%define addr [rbp - 8]
+; struct fd *
+%define fd [rbp - 16]
+; int8_t[24]
+%define buf [rbp - 40]
+; void print_accept(struct sockaddr_in *addr, struct fd *fd);
+print_accept:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov addr, rdi
+    mov fd, rsi
+    mov rdi, fd_stdout
+    mov rsi, accept_msg
+    call fd_puts
+    mov rdi, addr
+    lea rsi, buf
+    mov rdx, 24
+    call sockaddr_in_to_string
+    mov rdi, fd_stdout
+    lea rsi, buf
+    mov rdx, rax
+    call fd_write
+    mov rdi, fd_stdout
+    mov rsi, pref_fd
+    call fd_puts
+    mov rdi, fd
+    lea rsi, buf
+    mov rdx, 24
+    call fd_to_string
+    mov rdi, fd_stdout
+    lea rsi, buf
+    mov rdx, rax
+    call fd_write
+    mov rdi, fd_stdout
+    mov rsi, suff_fd
+    call fd_puts
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size (48 + 16384)
 ; struct nihserver *
 %define self [rbp - 8]
 ; struct fd *
@@ -286,7 +357,7 @@ nihserver_start_accepting:
 %define filepath_size [rbp - 40]
 ; char *
 %define req_uri_start [rbp - 48]
-; char [8192]
+; char [16384]
 %define buf [rbp - frame_size]
 ; void nihserver_handle_connection(
 ;         struct nihserver *self,
@@ -334,16 +405,14 @@ handle_connection:
     jmp .send_400
 .endif_read_r_l_1:
     mov rdi, upeer_fd
-    lea rsi, buf
-    mov rdx, rax
-    add rdx, filepath_size
-    call fd_send_all
-    mov ebx, 0
-    cmp eax, 0
-    setge bl
-    mov rdi, rbx
-    mov rsi, 0
-    call assert
+    mov rsi, upeer_sockaddr
+    lea rdx, buf
+    mov rcx, rax
+    add rcx, filepath_size
+    mov r8, rdx
+    add r8, rcx
+    mov byte [r8], 0
+    call send_response_file
 .done:
     mov rdi, upeer_fd
     mov esi, SHUT_WR
@@ -627,6 +696,58 @@ send_response_string:
     mov rdi, fd
     call fd_fsync
 .done:
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 48
+; struct fd *
+%define fd [rbp - 8]
+; struct sockaddr_in *
+%define addr [rbp - 16]
+; const int8_t *
+%define filepath [rbp - 24]
+; uint64
+%define filepath_size [rbp - 32]
+; struct fd
+%define file_fd [rbp - 36]
+; void send_response_file(
+;         struct fd *fd,
+;         struct sockaddr_in *addr,
+;         const int8_t *filepath,
+;         uint64_t filepath_size
+; );
+send_response_file:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov fd, rdi
+    mov addr, rsi
+    mov filepath, rdx
+    mov filepath_size, rcx
+
+    lea rdi, file_fd
+    mov rsi, filepath
+    mov edx, O_RDONLY
+    mov ecx, S_IRUSR
+    and edx, S_IRUSR
+    call fd_init_with_open
+    mov rdi, fd
+    lea rsi, file_fd
+    mov rdx, 0
+    mov rcx, 88
+    call fd_sendfile
+
+    ; mov rdi, fd
+    ; mov rsi, filepath
+    ; mov rdx, filepath_size
+    ; call fd_send_all
+    ; mov ebx, 0
+    ; cmp eax, 0
+    ; setge bl
+    ; mov rdi, rbx
+    ; mov rsi, 0
+    ; call assert
     add rsp, frame_size
     pop rbp
     ret
