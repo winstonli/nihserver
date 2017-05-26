@@ -19,6 +19,9 @@ bind_failed_msg:
 listen_failed_msg:
     db `Failed to listen\0`
 
+accept_failed_msg:
+    db `Failed to accept\0`
+
 listen_msg:
     db "Listening on "
 listen_addr:
@@ -241,12 +244,14 @@ nihserver_start_accepting:
     lea rdx, upeer_addrlen
     lea rcx, upeer_fd
     call fd_accept
-    mov ebx, 0
     cmp eax, 0
-    sete bl
-    mov rdi, rbx
-    mov rsi, 0
-    call assert
+    jnl .endif_accept_l_0
+    mov eax, edx
+    mov rdi, fd_stderr
+    mov rsi, accept_failed_msg
+    call fd_perror
+    jmp .while_true
+.endif_accept_l_0:
     lea rdi, upeer_sockaddr
     mov rsi, peer_addr
     mov rdx, 24
@@ -277,8 +282,8 @@ nihserver_start_accepting:
 %define buf_start [rbp - 24]
 ; struct sockaddr_in *
 %define upeer_sockaddr [rbp - 32]
-; char [4096]
-%define buf [rbp - 4128]
+; char [8192]
+%define buf [rbp - 8224]
 ; void nihserver_handle_connection(
 ;         struct nihserver *self,
 ;         struct fd *upeer_fd,
@@ -404,6 +409,8 @@ read_get:
 %define buf_start [rbp - 32]
 ; const int8_t *
 %define buf_end [rbp - 40]
+; uint64_t
+%define result [rbp - 48]
 ; uint64_t read_request_uri(struct fd *fd, int8_t *buf, uint64_t size);
 read_request_uri:
     push rbp
@@ -433,8 +440,23 @@ read_request_uri:
     mov rbx, buf
     cmp byte [rbx], ' '
     jne .endif_curr_e_space
-    sub rbx, buf_start
-    mov rax, rbx
+    mov rax, buf
+    sub rax, buf_start
+    mov result, rax
+    mov rdi, buf_start
+    mov rsi, result
+    call first_char_is_slash
+    cmp eax, 0
+    jne .endif_first_ne_slash
+    jmp .endwhile_space_g_0_and_read_g_0
+.endif_first_ne_slash:
+    mov rdi, buf_start
+    mov rsi, result
+    call has_no_special_directories
+    cmp eax, 0
+    jne .endif_has_special_directories
+    jmp .endwhile_space_g_0_and_read_g_0
+.endif_has_special_directories:
     jmp .done
 .endif_curr_e_space:
     inc qword buf
@@ -443,11 +465,109 @@ read_request_uri:
 .endwhile_read_g_0:
     jmp .while_space_g_0_and_read_g_0
 .endwhile_space_g_0_and_read_g_0:
-    mov rax, 0
+    mov qword result, 0
+.done:
+    mov rax, result
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 32
+; const char *
+%define s [rbp - 8]
+; uint64_t
+%define size [rbp - 16]
+; bool first_char_is_slash(const char *s, uint64_t size);
+first_char_is_slash:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov s, rdi
+    mov size, rsi
+    mov eax, 0
+    cmp rsi, 0
+    seta al
+    mov rdi, rax
+    mov rsi, 0
+    call assert
+    mov rdi, s
+    mov eax, 0
+    cmp byte [rdi], '/'
+    sete al
+    add rsp, frame_size
+    pop rbp
+    ret
+
+%define frame_size 32
+; const char *
+%define s [rbp - 8]
+; const char *
+%define end [rbp - 16]
+; const char *
+%define ptr [rbp - 24]
+; const char *
+%define next_slash [rbp - 32]
+; s is a file system path, e.g. s/s, /s, ../, ./, s/.
+; bool has_no_special_directories(const char *s, uint64_t size);
+has_no_special_directories:
+    push rbp
+    mov rbp, rsp
+    sub rsp, frame_size
+    mov s, rdi
+    add rsi, rdi
+    mov end, rsi
+    mov ptr, rdi
+.while_ptr_l_end:
+    mov rax, ptr
+    cmp rax, end
+    jnl .endwhile_ptr_l_end
+    mov ebx, 0
+    mov bl, [rax]
+    cmp bl, '/'
+    jne .endif_ptr0_e_slash
+    mov next_slash, rax
+    jmp .continue
+.endif_ptr0_e_slash:
+    inc rax
+    mov next_slash, rax
+.while_next_slash_l_end_and_next_slash0_ne_slash:
+    mov rax, next_slash
+    cmp rax, end
+    jnl .endwhile_next_slash_l_end_and_next_slash0_ne_slash
+    mov ebx, 0
+    mov bl, [rax]
+    cmp bl, '/'
+    je .endwhile_next_slash_l_end_and_next_slash0_ne_slash
+    inc qword next_slash
+    jmp .while_next_slash_l_end_and_next_slash0_ne_slash
+.endwhile_next_slash_l_end_and_next_slash0_ne_slash:
+    mov rdx, next_slash
+    sub rdx, ptr
+    cmp rdx, 0
+    jle .continue
+    cmp rdx, 2
+    jg .continue
+    mov rdi, ptr
+    mov rsi, .dots
+    call mem_cmp
+    cmp rax, 0
+    jne .continue
+    mov eax, 0
+    jmp .done
+.continue:
+    mov rax, next_slash
+    inc rax
+    mov ptr, rax
+    jmp .while_ptr_l_end
+.endwhile_ptr_l_end:
+    mov eax, 1
 .done:
     add rsp, frame_size
     pop rbp
     ret
+.dots:
+    db '..'
+    align 8
 
 %define frame_size 48
 ; struct fd *
@@ -690,7 +810,7 @@ start_string_:
     db `, "web_directory": "\0`
 start_string__:
     db `" }\n\0`
-align 8
+    align 8
 %define frame_size 16
 ; struct nihserver *
 %define self [rbp - 8]

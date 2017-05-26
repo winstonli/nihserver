@@ -40,7 +40,7 @@ assert_true:
     mov rbp, rsp
     sub rsp, frame_size
     cmp rdi, 0
-    jne endif_cond_equals_0
+    jne else_cond_equals_0
 assert_failed:
     mov msg, rsi
     mov rdi, fd_stderr
