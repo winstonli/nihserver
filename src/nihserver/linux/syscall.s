@@ -10,6 +10,8 @@ global syscall_mmap
 
 global syscall_munmap
 
+global syscall_nanosleep
+
 global syscall_accept
 
 global syscall_bind
@@ -59,6 +61,11 @@ syscall_mmap:
 
 syscall_munmap:
     mov rax, 11
+    syscall
+    ret
+
+syscall_nanosleep:
+    mov rax, 35
     syscall
     ret
 

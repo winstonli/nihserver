@@ -6,6 +6,10 @@
 
 section .data
 
+global stderr_lock
+
+global stdout_lock
+
 stderr_lock:
     align 4
     dd 0

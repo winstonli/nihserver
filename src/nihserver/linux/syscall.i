@@ -64,6 +64,9 @@ extern syscall_mmap
 ; int32_t syscall_munmap(void *addr, uint64_t length);
 extern syscall_munmap
 
+; int32_t syscall_nanosleep(struct timespec *req, struct timespec *rem);
+extern syscall_nanosleep
+
 ; int32_t syscall_accept(
 ;         int32_t fd,
 ;         struct sockaddr *upeer_sockaddr,

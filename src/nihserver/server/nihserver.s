@@ -10,6 +10,8 @@
 %include "nihserver/linux/sockaddr_in.i"
 %include "nihserver/linux/stat.i"
 %include "nihserver/linux/syscall.i"
+%include "nihserver/linux/timespec.i"
+%include "nihserver/thread/lock.i"
 %include "nihserver/thread/thread.i"
 
 %define INVALID_FD -1
@@ -17,11 +19,13 @@
 section .data
 
 start_string:
-    db `Starting server with { "port": \0`
+    db `Starting server with { \n    "port": \0`
 start_string_:
-    db `, "web_directory": "\0`
+    db `,\n    "web_directory": "\0`
 start_string__:
-    db `" }\n\0`
+    db `",\n    "num_threads": \0`
+start_string___:
+    db `\n}\n\0`
 
 bind_failed_msg:
     db `Failed to bind\0`
@@ -31,6 +35,11 @@ listen_failed_msg:
 
 accept_failed_msg:
     db `Failed to accept\0`
+
+emfile_msg:
+    db `\nTry increasing the open file limit with \`ulimit -n <num_files>\`\n`
+    db `Increase the kernel limits with fs.file_max and fs.nr_open in sysctl\n`
+    db `Or try reducing the number of threads\n\n\0`
 
 listen_msg:
     db `Listening on [\0`
@@ -93,7 +102,7 @@ global nihserver_deinit
 global nihserver_start
 
 
-%define frame_size 32
+%define frame_size 48
 ; struct nihserver *
 %define self [rbp - 8]
 ; uint16_t
@@ -102,6 +111,8 @@ global nihserver_start
 %define filepath [rbp - 24]
 ; uint64_t
 %define filepath_size [rbp - 32]
+; int32_t
+%define num_threads [rbp - 36]
 nihserver_init:
     push rbp
     mov rbp, rsp
@@ -111,6 +122,7 @@ nihserver_init:
     mov port, rsi
     mov filepath, rdx
     mov filepath_size, rcx
+    mov num_threads, r8d
     call nihserver_get_fd
 
     mov rdi, rax
@@ -127,6 +139,10 @@ nihserver_init:
     mov rdi, self
     mov rsi, filepath_size
     call nihserver_set_filepath_size
+
+    mov rdi, self
+    mov esi, num_threads
+    call nihserver_set_num_threads
 
 .done:
     add rsp, frame_size
@@ -257,16 +273,21 @@ nihserver_start:
     lea rsi, addr
     call nihserver_print_listen
 
-    mov rcx, 1024
+    mov rdi, self
+    call nihserver_get_num_threads
+
+    mov ecx, eax
+    dec ecx
+    cmp ecx, 0
+    jz .end_create_threads
 .create_thread:
     mov rdi, nihserver_start_accepting
     mov rsi, self
     push rcx
     call thread_create
     pop rcx
-    ; dec rcx
-    ; cmp rcx, 0
     loop .create_thread
+.end_create_threads:
 
     mov rdi, self
     call nihserver_start_accepting
@@ -292,6 +313,9 @@ nihserver_print_listen:
 
     mov self, rdi
     mov addr, rsi
+
+    mov rdi, stdout_lock
+    call lock_acquire
 
     mov rdi, fd_stdout
     mov rsi, listen_msg
@@ -331,12 +355,15 @@ nihserver_print_listen:
     mov rsi, suff_fd
     call fd_puts
 
+    mov rdi, stdout_lock
+    call lock_release
+
     add rsp, frame_size
     pop rbp
     ret
 
 
-%define frame_size 48
+%define frame_size 64
 ; struct nihserver *
 %define self [rbp - 8]
 ; struct fd *
@@ -347,6 +374,8 @@ nihserver_print_listen:
 %define upeer_addrlen [rbp - 36]
 ; struct fd
 %define upeer_fd [rbp - 40]
+; struct timespec
+%define sleep_time [rbp - 56]
 ; void nihserver_start_accepting(struct nihserver *self);
 nihserver_start_accepting:
     push rbp
@@ -369,10 +398,29 @@ nihserver_start_accepting:
     cmp eax, 0
     jnl .endif_accept_l_0
 
+    neg eax
+    push rax
+
     mov esi, eax
-    neg esi
     mov rdi, accept_failed_msg
     call log_perror
+
+    pop rax
+
+    cmp eax, 24
+    jne .endif_emfile
+    mov rdi, emfile_msg
+    call log_err
+
+.endif_emfile:
+    lea rdi, sleep_time
+    mov rsi, 10
+    mov rdx, 0
+    call timespec_init
+
+    lea rdi, sleep_time
+    mov rsi, 0
+    call syscall_nanosleep
 
     jmp .while_true
 
@@ -409,6 +457,9 @@ print_accept:
     mov addr, rdi
     mov fd, rsi
 
+    mov rdi, stdout_lock
+    call lock_acquire
+
     mov rdi, fd_stdout
     mov rsi, accept_msg
     call fd_puts
@@ -444,6 +495,9 @@ print_accept:
     mov rdi, fd_stdout
     mov rsi, suff_fd
     call fd_puts
+
+    mov rdi, stdout_lock
+    call lock_release
 
     add rsp, frame_size
     pop rbp
@@ -593,6 +647,9 @@ print_request:
     mov request_uri, rdx
     mov request_uri_size, rcx
 
+    mov rdi, stdout_lock
+    call lock_acquire
+
     mov rdi, fd_stdout
     mov esi, '['
     call fd_putc
@@ -633,6 +690,9 @@ print_request:
     mov rdi, fd_stdout
     mov esi, `\n`
     call fd_putc
+
+    mov rdi, stdout_lock
+    call lock_release
 
     add rsp, frame_size
     pop rbp
@@ -1327,6 +1387,9 @@ print_response:
     mov status_size, rcx
     mov content_length, r8
 
+    mov rdi, stdout_lock
+    call lock_acquire
+
     mov rdi, fd_stdout
     mov rsi, status
     mov rdx, status_size
@@ -1382,6 +1445,9 @@ print_response:
     mov rdx, fifth - fourth
     call fd_write
 
+    mov rdi, stdout_lock
+    call lock_release
+
     add rsp, frame_size
     pop rbp
     ret
@@ -1412,6 +1478,12 @@ nihserver_get_filepath_size:
     ret
 
 
+; int32_t nihserver_get_num_threads(const struct nihserver *self);
+nihserver_get_num_threads:
+    mov eax, [rdi + OFFSETOF_nihserver_num_threads]
+    ret
+
+
 ; void nihserver_set_port(struct nihserver *self, uint16_t port);
 nihserver_set_port:
     mov eax, esi
@@ -1425,8 +1497,18 @@ nihserver_set_filepath:
     ret
 
 
+; void nihserver_set_filepath_size(
+;         struct nihserver *self,
+;         uint64_t filepath_size
+; );
 nihserver_set_filepath_size:
     mov [rdi + OFFSETOF_nihserver_filepath_size], rsi
+    ret
+
+
+; void nihserver_set_num_threads(struct nihserver *self, int32_t num_threads);
+nihserver_set_num_threads:
+    mov [rdi + OFFSETOF_nihserver_num_threads], esi
     ret
 
 
@@ -1440,6 +1522,9 @@ nihserver_print_start:
     sub rsp, frame_size
 
     mov self, rdi
+
+    mov rdi, stdout_lock
+    call lock_acquire
 
     mov rdi, fd_stdout
     mov rsi, start_string
@@ -1466,6 +1551,20 @@ nihserver_print_start:
     mov rdi, fd_stdout
     mov rsi, start_string__
     call fd_puts
+
+    mov rdi, self
+    call nihserver_get_num_threads
+
+    mov rdi, fd_stdout
+    mov esi, eax
+    call fd_puti32
+
+    mov rdi, fd_stdout
+    mov rsi, start_string___
+    call fd_puts
+
+    mov rdi, stdout_lock
+    call lock_release
 
     add rsp, frame_size
     pop rbp

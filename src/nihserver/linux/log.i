@@ -3,6 +3,10 @@
 
 %ifndef LOG_S
 
+extern stderr_lock
+
+extern stdout_lock
+
 ; void log_err(const int8_t *s);
 extern log_err
 

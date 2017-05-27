@@ -2,7 +2,7 @@
 
 %include "nihserver/data/mem.i"
 
-%include "nihserver/linux/fd.i"
+%include "nihserver/linux/log.i"
 %include "nihserver/linux/syscall.i"
 
 section .data
@@ -48,7 +48,7 @@ mem_alloc_8m:
     mov rdi, 0
     mov rsi, MiB_8
     mov rdx, PROT_READ | PROT_WRITE
-    mov rcx, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN
+    mov rcx, MAP_ANONYMOUS | MAP_GROWSDOWN | MAP_PRIVATE
     mov r8, -1
     mov r9, 0
     call syscall_mmap
@@ -62,11 +62,10 @@ mem_free_8m:
     cmp eax, 0
     je .done
 
-    mov rdi, fd_stderr
-    mov rsi, mmap_failed
-    mov edx, eax
-    neg edx
-    call fd_perror
+    mov rdi, mmap_failed
+    mov esi, eax
+    neg esi
+    call log_perror
 
 .done:
     ret

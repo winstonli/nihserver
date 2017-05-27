@@ -14,7 +14,7 @@ global _start
 section .data
 
 usage:
-    db `usage: nihserver [port] [web_directory]\n`
+    db `usage: nihserver [port] [web_directory] [num_threads]\n`
 usage_end:
 
 invalid_port:
@@ -23,41 +23,46 @@ invalid_port:
 stat_err:
     db `Error when checking \0`
 
-hellostring:
-    db `Hello world\n`
-helloend:
-
 failed_to_start:
     db `Failed to start server\n\0`
 
-ftx:
-    dd 0
+web_dir_too_long:
+    db `Web directory path is too long\n\0`
+
+invalid_num_threads:
+    db `Invalid number of threads: \0`
 
 section .text
 
 
-%define frame_size 192
+%define frame_size 216
 ; int32_t
 %define argc [rbp + 8]
 ; const char *
 %define port_str [rbp + 24]
 ; const char *
 %define web_dir [rbp + 32]
+; const char *
+%define num_threads_str [rbp + 40]
 ; uint64_t
 %define port_length [rbp - 8]
 ; int64_t
 %define port [rbp - 16]
+; uint64_t
+%define web_dir_length [rbp - 24]
+; int64_t
+%define num_threads [rbp - 32]
 ; struct stat
-%define stat [rbp - 160]
+%define stat [rbp - 176]
 ; struct nihserver
-%define srv [rbp - 192]
+%define srv [rbp - 212]
 _start:
     push rbp
     mov rbp, rsp
     sub rsp, frame_size
 
-    cmp dword argc, 3
-    jnl .endif_argc_l_3
+    cmp dword argc, 4
+    jnl .endif_argc_l_4
 
     mov rdi, fd_stderr
     mov rsi, usage
@@ -66,7 +71,7 @@ _start:
 
     jmp .done
 
-.endif_argc_l_3:
+.endif_argc_l_4:
     mov rdi, port_str
     call string_length
 
@@ -108,6 +113,20 @@ _start:
 
 .endif_bad_port:
     mov rdi, web_dir
+    call string_length
+
+    mov web_dir_length, rax
+
+    cmp rax, 8192
+    jnge .endif_web_dir_too_long
+
+    mov rdi, web_dir_too_long
+    call log_err
+
+    jmp .done
+
+.endif_web_dir_too_long:
+    mov rdi, web_dir
     lea rsi, stat
     call syscall_stat
 
@@ -129,13 +148,45 @@ _start:
     jmp .done
 
 .endif_stat_l_0:
-    mov rdi, web_dir
+    mov rdi, num_threads_str
     call string_length
 
+    push rax
+    cmp rax, 10
+    jge .invalid_num_threads
+
+    mov rdi, num_threads_str
+    pop rsi
+    lea rdx, num_threads
+    call string_to_int64
+
+    cmp rax, 0
+    je .invalid_num_threads
+
+    cmp qword num_threads, 0
+    jnle .endif_check_num_threads
+
+.invalid_num_threads:
+
+    mov rdi, invalid_num_threads
+    call log_err
+
+    mov rdi, num_threads_str
+    call log_err
+
+    mov rdi, fd_stderr
+    mov esi, `\n`
+    call fd_putc
+
+    jmp .done
+
+.endif_check_num_threads:
     mov rcx, rax
     lea rdi, srv
     mov rsi, port
     mov rdx, web_dir
+    mov rcx, web_dir_length
+    mov r8d, num_threads
     call nihserver_init
 
     lea rdi, srv

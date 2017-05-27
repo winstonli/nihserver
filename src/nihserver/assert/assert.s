@@ -3,7 +3,9 @@
 %include "nihserver/assert/assert.i"
 
 %include "nihserver/linux/fd.i"
+%include "nihserver/linux/log.i"
 %include "nihserver/linux/syscall.i"
+%include "nihserver/thread/lock.i"
 
 section .data
 
@@ -44,6 +46,9 @@ assert_true:
     mov rbp, rsp
     sub rsp, frame_size
 
+    mov rdi, stderr_lock
+    call lock_acquire
+
     cmp rdi, 0
     jne .else_cond_equals_0
 
@@ -78,6 +83,9 @@ assert_true:
 
 .endif_cond_equals_0:
     mov eax, r
+
+    mov rdi, stderr_lock
+    call lock_release
 
     add rsp, frame_size
     pop rbp
