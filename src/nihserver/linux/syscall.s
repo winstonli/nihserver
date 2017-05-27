@@ -6,6 +6,10 @@ section .data
 
 global syscall_open
 
+global syscall_mmap
+
+global syscall_munmap
+
 global syscall_accept
 
 global syscall_bind
@@ -39,6 +43,19 @@ global syscall_write
 
 syscall_open:
     mov rax, 2
+    syscall
+    ret
+
+
+syscall_mmap:
+    mov rax, 9
+    mov r10, rcx
+    syscall
+    ret
+
+
+syscall_munmap:
+    mov rax, 11
     syscall
     ret
 

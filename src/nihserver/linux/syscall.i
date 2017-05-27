@@ -10,9 +10,7 @@
 %define SO_REUSEADDR 2
 
 %define SHUT_RD 0
-
 %define SHUT_WR 1
-
 %define SHUT_RDWR 2
 
 %define MSG_NOSIGNAL 16384
@@ -20,6 +18,13 @@
 %define O_RDONLY 0
 
 %define S_IRUSR 256
+
+%define PROT_READ 1
+%define PROT_WRITE 2
+
+%define MAP_PRIVATE 0x2
+%define MAP_ANONYMOUS 0x20
+%define MAP_GROWSDOWN 0x100
 
 %ifndef SYSCALL_S
 
@@ -29,6 +34,19 @@
 ;         int32_t mode
 ; );
 extern syscall_open
+
+; void *syscall_mmap(
+;         void *addr,
+;         uint64_t length,
+;         uint64_t prot,
+;         uint64_t flags,
+;         int64_t fd,
+;         int64_t offset
+; );
+extern syscall_mmap
+
+; int32_t syscall_munmap(void *addr, uint64_t length);
+extern syscall_munmap
 
 ; int32_t syscall_accept(
 ;         int32_t fd,

@@ -2,12 +2,25 @@
 
 %include "nihserver/data/mem.i"
 
+%include "nihserver/linux/fd.i"
+%include "nihserver/linux/syscall.i"
+
+%define MiB_8 (1 << 23)
+
+section .data
+
+mmap_failed:
+    db `Failed to munmap\n`
+
 section .text
 
 global mem_copy
 
 global mem_cmp
 
+global mem_alloc_8m
+
+global mem_free_8m
 
 mem_copy:
     mov rcx, rdx
@@ -30,4 +43,32 @@ mem_cmp:
     mov eax, 0
     mov al, byte [rdi - 1]
     sub al, byte [rsi - 1]
+    ret
+
+
+mem_alloc_8m:
+    mov rdi, 0
+    mov rsi, MiB_8
+    mov rdx, PROT_READ | PROT_WRITE
+    mov rcx, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN
+    mov r8, -1
+    mov r9, 0
+    call syscall_mmap
+    ret
+
+
+mem_free_8m:
+    mov rsi, MiB_8
+    call syscall_munmap
+
+    cmp eax, 0
+    je .done
+
+    mov rdi, fd_stderr
+    mov rsi, mmap_failed
+    mov edx, eax
+    neg edx
+    call fd_perror
+
+.done:
     ret

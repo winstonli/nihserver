@@ -12,7 +12,7 @@ extern mem_cmp
 ; void *mem_alloc_8m();
 extern mem_alloc_8m
 
-; void mem_free_8m();
+; void mem_free_8m(void *ptr);
 extern mem_free_8m
 
 %endif
