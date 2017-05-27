@@ -6,9 +6,6 @@
 ; void assert(bool cond, const char *msg);
 extern assert
 
-; bool assert_true(bool cond, const char *msg);
-extern assert_true
-
 %endif
 
 %endif

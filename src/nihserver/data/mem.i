@@ -9,6 +9,12 @@ extern mem_copy
 ; int32_t mem_cmp(const void *a, const void *b, uint64_t n);
 extern mem_cmp
 
+; void *mem_alloc_8m();
+extern mem_alloc_8m
+
+; void mem_free_8m();
+extern mem_free_8m
+
 %endif
 
 %endif

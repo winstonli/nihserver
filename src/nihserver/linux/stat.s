@@ -30,28 +30,31 @@ global stat_is_dir
 
 global stat_is_reg
 
+
 stat_get_st_mode:
     mov eax, [rdi + OFFSETOF_stat_st_mode]
     ret
+
 
 stat_get_st_size:
     mov rax, [rdi + OFFSETOF_stat_st_size]
     ret
 
+
 stat_is_dir:
     call stat_get_st_mode
-    mov ebx, 0
+    mov r8d, 0
     and eax, __S_IFMT
     cmp eax, __S_IFDIR
-    sete bl
-    mov eax, ebx
+    sete r8b
+    mov eax, r8d
     ret
 
 stat_is_reg:
     call stat_get_st_mode
-    mov ebx, 0
+    mov r8d, 0
     and eax, __S_IFMT
     cmp eax, __S_IFREG
-    sete bl
-    mov eax, ebx
+    sete r8b
+    mov eax, r8d
     ret

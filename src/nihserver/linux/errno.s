@@ -117,15 +117,19 @@ section .text
 
 global errno_to_string
 
+
 errno_to_string:
     cmp rdi, 0
     jl .endif_errno_ge_0_and_errno_l_size
+
     cmp rdi, errno_table_end - errno_table
     jge .endif_errno_ge_0_and_errno_l_size
-    lea rax, [errno_table + 8 * rdi]
-    mov rax, [rax]
+
+    mov rax, [errno_table + 8 * rdi]
     jmp .done
+
 .endif_errno_ge_0_and_errno_l_size:
     mov rax, unknown
+
 .done:
     ret

@@ -17,18 +17,22 @@ section .text
 
 global assert
 
-global assert_true
 
 assert:
     push rbp
+
     call assert_true
+
     cmp rax, 0
-    jne endif_ret_not_equals_0
+    jne .endif
+
     mov rdi, 2
     call syscall_exit
-endif_ret_not_equals_0:
+
+.endif:
     pop rbp
     ret
+
 
 %define frame_size 16
 ; const char *
@@ -39,32 +43,42 @@ assert_true:
     push rbp
     mov rbp, rsp
     sub rsp, frame_size
+
     cmp rdi, 0
-    jne else_cond_equals_0
-assert_failed:
+    jne .else_cond_equals_0
+
+.assert_failed:
     mov msg, rsi
     mov rdi, fd_stderr
     mov rsi, assert_error
     call fd_puts
+
     mov rax, msg
     cmp rax, 0
-    je endif_msg_is_not_null
+    je .endif_msg_is_not_null
+
     mov rdi, fd_stderr
     mov rsi, assert_error_colon
     call fd_puts
+
     mov rdi, fd_stderr
     mov rsi, msg
     call fd_puts
-endif_msg_is_not_null:
+
+.endif_msg_is_not_null:
     mov rdi, fd_stderr
     mov rsi, `\n`
     call fd_putc
+
     mov dword r, 0
-    jmp endif_cond_equals_0
-else_cond_equals_0:
+    jmp .endif_cond_equals_0
+
+.else_cond_equals_0:
     mov dword r, 1
-endif_cond_equals_0:
+
+.endif_cond_equals_0:
     mov eax, r
+
     add rsp, frame_size
     pop rbp
     ret

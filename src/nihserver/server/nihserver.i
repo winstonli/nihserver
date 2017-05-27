@@ -1,6 +1,7 @@
 %ifndef NIHSERVER_I
 %define NIHSERVER_I
 
+; A struct containing an instance of a server.
 ; struct nihserver {
 ;     struct fd fd;
 ;     uint16_t port;
