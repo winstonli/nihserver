@@ -6,9 +6,11 @@
 %include "nihserver/data/mem.i"
 %include "nihserver/data/string.i"
 %include "nihserver/linux/fd.i"
+%include "nihserver/linux/log.i"
 %include "nihserver/linux/sockaddr_in.i"
 %include "nihserver/linux/stat.i"
 %include "nihserver/linux/syscall.i"
+%include "nihserver/thread/thread.i"
 
 %define INVALID_FD -1
 
@@ -255,6 +257,17 @@ nihserver_start:
     lea rsi, addr
     call nihserver_print_listen
 
+    mov rcx, 1024
+.create_thread:
+    mov rdi, nihserver_start_accepting
+    mov rsi, self
+    push rcx
+    call thread_create
+    pop rcx
+    ; dec rcx
+    ; cmp rcx, 0
+    loop .create_thread
+
     mov rdi, self
     call nihserver_start_accepting
 
@@ -356,11 +369,10 @@ nihserver_start_accepting:
     cmp eax, 0
     jnl .endif_accept_l_0
 
-    mov edx, eax
-    neg edx
-    mov rdi, fd_stderr
-    mov rsi, accept_failed_msg
-    call fd_perror
+    mov esi, eax
+    neg esi
+    mov rdi, accept_failed_msg
+    call log_perror
 
     jmp .while_true
 

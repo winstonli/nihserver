@@ -15,6 +15,9 @@ extern log_out
 ; void log_out_n(const int8_t *s, uint64_t n);
 extern log_out_n
 
+; void log_perror(const int8_t *s);
+extern log_perror
+
 %endif
 
 %endif

@@ -1,7 +1,7 @@
 %ifndef MEM_I
 %define MEM_I
 
-%define MiB_8 (1 << 23)
+%define MiB_8 (1 << 16)
 
 %ifndef MEM_S
 
