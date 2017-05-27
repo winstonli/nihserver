@@ -1,6 +1,9 @@
 %ifndef SYSCALL_I
 %define SYSCALL_I
 
+%define SYS_munmap 11
+%define SYS_exit 60
+
 %define AF_INET 2
 
 %define SOCK_STREAM 1
@@ -21,10 +24,20 @@
 
 %define PROT_READ 1
 %define PROT_WRITE 2
+%define PROT_EXEC 4
 
+%define MAP_SHARED 0x1
 %define MAP_PRIVATE 0x2
 %define MAP_ANONYMOUS 0x20
 %define MAP_GROWSDOWN 0x100
+
+%define CLONE_VM 0x100
+%define CLONE_FS 0x200
+%define CLONE_FILES 0x400
+%define CLONE_SIGHAND 0x800
+%define CLONE_THREAD 0x10000
+
+%define SIGCHLD 0x11
 
 %ifndef SYSCALL_S
 
@@ -57,6 +70,14 @@ extern syscall_accept
 
 ; int32_t syscall_bind(int32_t fd, struct sockaddr *umyaddr, int32_t addrlen);
 extern syscall_bind
+
+; int64_t syscall_clone(
+;         uint64_t flags,
+;         void *child_stack,
+;         pid_t *ptid,
+;         pid_t *ctid
+; );
+extern syscall_clone
 
 ; int32_t syscall_close(int32_t fd);
 extern syscall_close

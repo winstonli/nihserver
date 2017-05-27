@@ -14,6 +14,8 @@ global syscall_accept
 
 global syscall_bind
 
+global syscall_clone
+
 global syscall_close
 
 global syscall_stat
@@ -68,6 +70,15 @@ syscall_accept:
 
 syscall_bind:
     mov rax, 49
+    syscall
+    ret
+
+
+syscall_clone:
+    mov r10, [rsp]
+    mov [rsi], r10
+    mov rax, 56
+    mov r10, rcx
     syscall
     ret
 

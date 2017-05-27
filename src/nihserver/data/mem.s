@@ -5,8 +5,6 @@
 %include "nihserver/linux/fd.i"
 %include "nihserver/linux/syscall.i"
 
-%define MiB_8 (1 << 23)
-
 section .data
 
 mmap_failed:

@@ -1,6 +1,8 @@
 %ifndef MEM_I
 %define MEM_I
 
+%define MiB_8 (1 << 23)
+
 %ifndef MEM_S
 
 ; void mem_copy(void *dest, const void *src, uint64_t n);

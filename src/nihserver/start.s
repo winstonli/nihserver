@@ -5,6 +5,7 @@
 %include "nihserver/server/nihserver.i"
 
 %include "nihserver/data/mem.i"
+%include "nihserver/thread/thread.i"
 
 global _start
 
@@ -152,4 +153,11 @@ _start:
 
     add rsp, frame_size
     pop rbp
+    ret
+
+print_1:
+    mov rdi, fd_stdout
+    mov rsi, stat_err
+    call fd_puts
+    mov eax, 0
     ret

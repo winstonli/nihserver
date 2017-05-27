@@ -50,6 +50,7 @@ stat_is_dir:
     mov eax, r8d
     ret
 
+
 stat_is_reg:
     call stat_get_st_mode
     mov r8d, 0
