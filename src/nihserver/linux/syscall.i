@@ -39,6 +39,9 @@
 
 %define SIGCHLD 0x11
 
+%define FUTEX_WAIT 0
+%define FUTEX_WAKE 1
+
 %ifndef SYSCALL_S
 
 ; int32_t syscall_open(
@@ -135,6 +138,16 @@ extern syscall_stat
 
 ; int32_t syscall_write(int32_t fd, const void *buf, uint64_t count);
 extern syscall_write
+
+; int32_t syscall_futex(
+;         int32_t *uaddr,
+;         int32_t futex_opt,
+;         int32_t val,
+;         const struct timespec *timeout,
+;         int32_t *uaddr2,
+;         int32_t val3
+; );
+extern syscall_futex
 
 %endif
 

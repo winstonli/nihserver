@@ -6,6 +6,8 @@
 
 %include "nihserver/data/mem.i"
 %include "nihserver/thread/thread.i"
+%include "nihserver/thread/lock.i"
+%include "nihserver/linux/log.i"
 
 global _start
 
@@ -27,6 +29,9 @@ helloend:
 
 failed_to_start:
     db `Failed to start server\n\0`
+
+ftx:
+    dd 0
 
 section .text
 
@@ -153,11 +158,4 @@ _start:
 
     add rsp, frame_size
     pop rbp
-    ret
-
-print_1:
-    mov rdi, fd_stdout
-    mov rsi, stat_err
-    call fd_puts
-    mov eax, 0
     ret

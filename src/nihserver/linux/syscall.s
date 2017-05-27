@@ -42,6 +42,7 @@ global syscall_socket
 
 global syscall_write
 
+global syscall_futex
 
 syscall_open:
     mov rax, 2
@@ -160,5 +161,12 @@ syscall_socket:
 
 syscall_write:
     mov rax, 1
+    syscall
+    ret
+
+
+syscall_futex:
+    mov rax, 202
+    mov r10, rcx
     syscall
     ret
