@@ -16,9 +16,9 @@ global mem_copy
 
 global mem_cmp
 
-global mem_alloc_8m
+global mem_alloc_chunk
 
-global mem_free_8m
+global mem_free_chunk
 
 mem_copy:
     mov rcx, rdx
@@ -44,9 +44,9 @@ mem_cmp:
     ret
 
 
-mem_alloc_8m:
+mem_alloc_chunk:
     mov rdi, 0
-    mov rsi, MiB_8
+    mov rsi, MEM_CHUNK_SIZE
     mov rdx, PROT_READ | PROT_WRITE
     mov rcx, MAP_ANONYMOUS | MAP_GROWSDOWN | MAP_PRIVATE
     mov r8, -1
@@ -55,8 +55,8 @@ mem_alloc_8m:
     ret
 
 
-mem_free_8m:
-    mov rsi, MiB_8
+mem_free_chunk:
+    mov rsi, MEM_CHUNK_SIZE
     call syscall_munmap
 
     cmp eax, 0

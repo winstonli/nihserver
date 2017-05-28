@@ -29,7 +29,7 @@ thread_create:
     mov fn, rdi
     mov arg, rsi
 
-    call mem_alloc_8m
+    call mem_alloc_chunk
 
     mov stack, rax
     cmp rax, 0
@@ -38,7 +38,7 @@ thread_create:
     mov rdi, SIGCHLD | \
              CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD
     mov rsi, rax
-    add rsi, MiB_8 - 8
+    add rsi, MEM_CHUNK_SIZE - 8
     mov rdx, 0
     mov rcx, 0
     call syscall_clone
@@ -83,7 +83,7 @@ child_start:
     ; So these final calls must be inline
 
     mov rdi, stack
-    mov rsi, MiB_8
+    mov rsi, MEM_CHUNK_SIZE
     mov rax, SYS_munmap
     syscall
 
